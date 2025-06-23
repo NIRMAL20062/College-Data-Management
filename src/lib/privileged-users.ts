@@ -5,5 +5,6 @@
 // or as a custom claim on the user's Firebase auth token.
 export const privilegedEmails = [
   'admin@example.com',
-  'teacher@example.com'
+  'teacher@example.com',
+  'kumar.nirmal2608@gmail.com'
 ];
