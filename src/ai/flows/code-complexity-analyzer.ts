@@ -5,7 +5,7 @@
  * @fileOverview Analyzes code snippets to determine time complexity.
  *
  * - analyzeCodeComplexity - A function that analyzes the time complexity of a given code snippet.
- * - CodeComplexityInput - The input type for the analyzeCodeComplexity function.
+ * - CodeComplexityInput - The input type for the analyzeCodecomplexity function.
  * - CodeComplexityOutput - The return type for the analyzeCodeComplexity function.
  */
 
@@ -40,9 +40,9 @@ const analyzeCodeComplexityPrompt = ai.definePrompt({
   Analyze the following code snippet and determine its time complexity. Provide a brief explanation of your reasoning.
 
   Code Snippet:
-  ```
-  {{{codeSnippet}}}
-  ```
+  \`\`\`
+  {{codeSnippet}}
+  \`\`\`
 
   Time Complexity: (e.g., O(n), O(log n), O(n^2))
   Explanation:`, // Ensure the prompt ends with the desired output format
