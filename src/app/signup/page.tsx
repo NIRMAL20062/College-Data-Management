@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from "next/link"
@@ -15,7 +16,7 @@ export default function SignUpPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create an Account</CardTitle>
-            <CardDescription>Enter your details below to create your account.</CardDescription>
+            <CardDescription>Sign up with your Google account to get started.</CardDescription>
           </CardHeader>
           <CardContent>
             <SignUpForm />
