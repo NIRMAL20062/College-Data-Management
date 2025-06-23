@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useRef, useEffect, type FormEvent } from "react"
@@ -9,6 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { chatbotAssistant } from "@/ai/flows/chatbot-assistant"
 import { useToast } from "@/hooks/use-toast"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface Message {
   role: "user" | "bot"
@@ -92,7 +95,16 @@ export function ChatInterface() {
                   </Avatar>
                 )}
                 <div className={`rounded-lg px-4 py-3 max-w-lg ${message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  {message.role === 'bot' ? (
+                     <ReactMarkdown
+                        className="prose dark:prose-invert prose-sm max-w-none"
+                        remarkPlugins={[remarkGfm]}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
                 </div>
                 {message.role === 'user' && (
                   <Avatar>
