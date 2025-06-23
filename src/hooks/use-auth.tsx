@@ -1,3 +1,4 @@
+
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -28,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(user);
       setLoading(false);
       if (user?.email) {
-        setIsPrivileged(privilegedEmails.includes(user.email));
+        setIsPrivileged(privilegedEmails.includes(user.email.toLowerCase()));
       } else {
         setIsPrivileged(false);
       }
