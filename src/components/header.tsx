@@ -13,8 +13,41 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SidebarTrigger } from "./ui/sidebar"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
+import { auth } from "@/lib/firebase"
+import { signOut } from "firebase/auth"
+import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
+
 
 export function Header() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      });
+      router.push("/");
+    } catch (error) {
+      toast({
+        title: "Logout Failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  }
+
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-card px-4 sm:px-6 lg:px-8">
       <div className="md:hidden">
@@ -61,11 +94,14 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
-              <User className="h-5 w-5" />
+               <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
+                  <AvatarFallback>{getInitials(user?.displayName)}</AvatarFallback>
+                </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.displayName || user?.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <Link href="/dashboard/settings" passHref>
               <DropdownMenuItem>
@@ -74,12 +110,10 @@ export function Header() {
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />
-            <Link href="/" passHref>
-              <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
-            </Link>
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

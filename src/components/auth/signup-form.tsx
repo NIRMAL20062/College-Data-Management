@@ -8,6 +8,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { useState } from "react"
+import { Loader2 } from "lucide-react"
 
 const formSchema = z.object({
   fullName: z.string().min(2, {
@@ -24,6 +28,8 @@ const formSchema = z.object({
 export function SignUpForm() {
   const { toast } = useToast()
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,15 +40,29 @@ export function SignUpForm() {
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // This is a placeholder for actual signup logic.
-    console.log(values)
-    toast({
-      title: "Account Created!",
-      description: "Redirecting to your new dashboard...",
-    })
-    // Redirect to dashboard on successful "signup"
-    router.push("/dashboard")
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setLoading(true);
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password)
+        await updateProfile(userCredential.user, {
+            displayName: values.fullName,
+        });
+        
+        toast({
+          title: "Account Created!",
+          description: "Redirecting to your new dashboard...",
+        })
+        router.push("/dashboard")
+
+    } catch (error: any) {
+        toast({
+            title: "Sign-up Failed",
+            description: error.message,
+            variant: "destructive",
+        })
+    } finally {
+        setLoading(false);
+    }
   }
 
   return (
@@ -87,7 +107,8 @@ export function SignUpForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading && <Loader2 className="animate-spin" />}
           Create Account
         </Button>
       </form>

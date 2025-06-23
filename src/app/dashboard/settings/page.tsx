@@ -1,9 +1,17 @@
+// src/app/dashboard/settings/page.tsx
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SettingsPage() {
-  const isPrivileged = false; // Placeholder for user status
+  const { user, isPrivileged } = useAuth();
+
+  if (!user) {
+    return null; // Or a loading state
+  }
 
   return (
     <div className="space-y-6">
@@ -22,7 +30,7 @@ export default function SettingsPage() {
             <CardContent>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                        <h3 className="font-semibold">User Role</h3>
+                        <h3 className="font-semibold">{user.displayName || user.email}</h3>
                         <p className="text-sm text-muted-foreground">This determines your permissions.</p>
                     </div>
                     <Badge variant={isPrivileged ? "default" : "secondary"}>
@@ -36,7 +44,7 @@ export default function SettingsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Privileged Access</CardTitle>
-                    <CardDescription>Privileged users can post announcements and manage notifications.</CardDescription>
+                    <CardDescription>Privileged users can post announcements and manage notes.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/50">

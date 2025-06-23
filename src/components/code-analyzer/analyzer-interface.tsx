@@ -3,10 +3,11 @@
 import { useState, type FormEvent } from "react"
 import { analyzeCodeComplexity, type CodeComplexityOutput } from "@/ai/flows/code-complexity-analyzer"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, Zap } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ComplexityChart } from "./complexity-chart"
 
 const placeholderCode = `function example(arr) {
   let sum = 0;
@@ -82,10 +83,14 @@ export function AnalyzerInterface() {
           )}
           {error && <p className="text-destructive">{error}</p>}
           {result && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <h3 className="font-semibold text-muted-foreground">Time Complexity</h3>
                 <p className="text-2xl font-bold font-code text-primary">{result.timeComplexity}</p>
+              </div>
+               <div>
+                <h3 className="font-semibold text-muted-foreground mb-2">Complexity Graph</h3>
+                <ComplexityChart result={result.timeComplexity} />
               </div>
               <div>
                 <h3 className="font-semibold text-muted-foreground">Explanation</h3>

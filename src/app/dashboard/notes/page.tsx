@@ -1,6 +1,10 @@
+// src/app/dashboard/notes/page.tsx
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
 
 const notes = [
     { id: 1, title: "Quantum Mechanics Lecture", date: "2024-05-21", content: "Key takeaways: Wave-particle duality is weird. Schrödinger's cat is a thought experiment, not a real one..." },
@@ -8,20 +12,32 @@ const notes = [
 ];
 
 export default function NotesPage() {
+  const { isPrivileged } = useAuth();
+
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_300px]">
       <div className="space-y-6">
-        <Card>
-            <CardHeader>
-                <CardTitle>New Note</CardTitle>
-                <CardDescription>Jot down your thoughts, ideas, or lecture notes.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <Textarea placeholder="Title" className="text-lg font-semibold"/>
-                <Textarea placeholder="Start writing..." rows={15} />
-                <Button>Save Note</Button>
-            </CardContent>
-        </Card>
+        {isPrivileged && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>New Note</CardTitle>
+                    <CardDescription>Jot down your thoughts, ideas, or lecture notes for others to see.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Textarea placeholder="Title" className="text-lg font-semibold"/>
+                    <Textarea placeholder="Start writing..." rows={15} />
+                    <Button>Save Note</Button>
+                </CardContent>
+            </Card>
+        )}
+        {!isPrivileged && (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Notes</CardTitle>
+                    <CardDescription>Here you can find notes uploaded by contributors. To upload, you need privileged access.</CardDescription>
+                </CardHeader>
+             </Card>
+        )}
       </div>
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Recent Notes</h2>
@@ -36,6 +52,9 @@ export default function NotesPage() {
                 </CardContent>
             </Card>
         ))}
+        {notes.length > 0 && (
+             <Button variant="outline" className="w-full">Download All Notes</Button>
+        )}
       </div>
     </div>
   )
