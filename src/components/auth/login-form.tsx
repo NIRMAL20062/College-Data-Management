@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
@@ -60,7 +60,7 @@ export function LoginForm() {
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message,
+        description: "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -81,6 +81,43 @@ export function LoginForm() {
     } catch (error: any) {
       toast({
         title: "Google Sign-In Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordReset() {
+    const email = form.getValues("email");
+    if (!email) {
+      toast({
+        title: "Email Required",
+        description: "Please enter your email address to reset your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (form.getFieldState("email").invalid) {
+       toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Please check your inbox for instructions.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Password Reset Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -111,7 +148,18 @@ export function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    <Button
+                        type="button"
+                        variant="link"
+                        className="p-0 h-auto text-xs text-primary"
+                        onClick={handlePasswordReset}
+                        disabled={loading}
+                    >
+                        Forgot Password?
+                    </Button>
+                </div>
                 <FormControl>
                   <Input type="password" placeholder="••••••••" {...field} />
                 </FormControl>
@@ -120,7 +168,7 @@ export function LoginForm() {
             )}
           />
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="animate-spin" />}
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Login
           </Button>
         </form>
@@ -136,7 +184,7 @@ export function LoginForm() {
         </div>
       </div>
       <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-        {loading ? <Loader2 className="animate-spin"/> : <GoogleIcon />}
+        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon className="mr-2 h-4 w-4" />}
         Google
       </Button>
     </div>

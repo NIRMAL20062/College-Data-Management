@@ -15,7 +15,7 @@ export default function SignUpPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create an Account</CardTitle>
-            <CardDescription>To ensure security, please sign up using your Google account.</CardDescription>
+            <CardDescription>Enter your details below to create your account.</CardDescription>
           </CardHeader>
           <CardContent>
             <SignUpForm />
