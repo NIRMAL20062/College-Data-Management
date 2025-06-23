@@ -1,11 +1,11 @@
 'use client'
 
 import Link from "next/link"
-import { LoginForm } from "@/components/auth/login-form"
+import { SignUpForm } from "@/components/auth/signup-form"
 import { Logo } from "@/components/logo"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function LoginPage() {
+export default function SignUpPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
@@ -14,17 +14,17 @@ export default function LoginPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Welcome Back!</CardTitle>
-            <CardDescription>Enter your credentials to access your account.</CardDescription>
+            <CardTitle>Create an Account</CardTitle>
+            <CardDescription>Join AcademIQ to start your journey to success.</CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <SignUpForm />
           </CardContent>
         </Card>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link href="/signup" className="font-medium text-primary underline-offset-4 hover:underline">
-            Sign up
+          Already have an account?{" "}
+          <Link href="/" className="font-medium text-primary underline-offset-4 hover:underline">
+            Login
           </Link>
         </p>
       </div>
