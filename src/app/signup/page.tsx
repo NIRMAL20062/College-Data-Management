@@ -15,7 +15,7 @@ export default function SignUpPage() {
         <Card>
           <CardHeader>
             <CardTitle>Create an Account</CardTitle>
-            <CardDescription>Join AcademIQ to start your journey to success.</CardDescription>
+            <CardDescription>To ensure security, please sign up using your Google account.</CardDescription>
           </CardHeader>
           <CardContent>
             <SignUpForm />
