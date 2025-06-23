@@ -34,9 +34,9 @@ const prompt = ai.definePrompt({
 
   Use the following course notes to answer the question.
 
-  Course Notes: {{{courseNotes}}}
+  Course Notes: {{courseNotes}}
 
-  Question: {{{question}}}
+  Question: {{question}}
 
   Answer:`,
 });
