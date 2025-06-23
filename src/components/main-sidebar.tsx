@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -49,15 +50,16 @@ export function MainSidebar() {
         <SidebarMenu>
           {menuItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref legacyBehavior>
-                <SidebarMenuButton
-                  isActive={pathname === item.href}
-                  tooltip={item.label}
-                >
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                tooltip={item.label}
+              >
+                <Link href={item.href}>
                   <item.icon />
                   <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -65,15 +67,16 @@ export function MainSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/dashboard/settings" passHref legacyBehavior>
-              <SidebarMenuButton
-                isActive={pathname === "/dashboard/settings"}
-                tooltip="Settings"
-              >
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/dashboard/settings"}
+              tooltip="Settings"
+            >
+              <Link href="/dashboard/settings">
                 <Settings />
                 <span>Settings</span>
-              </SidebarMenuButton>
-            </Link>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
