@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
+import { createUserWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -76,19 +76,15 @@ export function SignUpForm() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      toast({
-        title: "Account Created!",
-        description: "Redirecting to your new dashboard...",
-      });
-      router.push("/dashboard");
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected, so the rest of the code won't execute here.
+      // The result is handled on the login page after redirect.
     } catch (error: any) {
       toast({
         title: "Google Sign-Up Failed",
         description: error.message,
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   }

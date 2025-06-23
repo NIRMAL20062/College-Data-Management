@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth"
+import { signInWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
@@ -72,19 +72,15 @@ export function LoginForm() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      toast({
-        title: "Google Sign-In Successful",
-        description: "Redirecting to your dashboard...",
-      });
-      router.push("/dashboard");
+      await signInWithRedirect(auth, provider);
+      // The user will be redirected, so the rest of the code won't execute here.
+      // The result is handled on the login page after redirect.
     } catch (error: any) {
       toast({
         title: "Google Sign-In Failed",
         description: error.message,
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   }
