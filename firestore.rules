@@ -1,41 +1,39 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // User Profiles: Allow users to create their profile and then only read/update their own.
+    match /users/{userId} {
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
 
-    function isAuthenticated() {
-      return request.auth != null;
+    // Announcements: Allow any authenticated user to read, but only privileged users to write.
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
     }
     
-    function isPrivileged(userId) {
-      // Ensure the user document exists before trying to access its data.
-      return exists(/databases/$(database)/documents/users/$(userId)) &&
-             get(/databases/$(database)/documents/users/$(userId)).data.isPrivileged == true;
+    // Notes: Allow any authenticated user to read, but only privileged users to write.
+    match /notes/{noteId} {
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged ==.isPrivileged == true;
     }
 
-    match /users/{userId} {
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow read, update: if isAuthenticated() && request.auth.uid == userId;
+    // Tasks: Users can only read and write to their own tasks subcollection.
+    match /users/{userId}/tasks/{taskId} {
+      allow read, write: if request.auth.uid == userId;
     }
-
-    match /{collection}/{docId} where collection in ['notes', 'announcements'] {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated() && isPrivileged(request.auth.uid);
-    }
-
-    // Rules for user-specific 'tasks'
-    match /users/{userId}/tasks/{docId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Rules for user-specific 'exams'
+    
+    // Exams: This is the key rule for the class average feature.
     match /users/{userId}/exams/{examId} {
-      // ANY authenticated user can READ ANY exam document for class average calculation.
-      allow read: if isAuthenticated();
-      
-      // ONLY the owner of the document can WRITE (create, update, delete) it.
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+        // Any authenticated user can READ any exam record.
+        // This is required for calculating the class average across all students.
+        allow read: if request.auth != null;
+        
+        // Only the user who owns the document can WRITE (create, update, delete) it.
+        allow write: if request.auth.uid == userId;
     }
   }
 }
