@@ -37,9 +37,9 @@ const getExamMarks = ai.defineTool(
     outputSchema: z.string(),
   },
   async (filters, context) => {
-    // The tool automatically gets the flow's input as the second argument (context).
+    // The tool handler receives the prompt's input as the second argument (context).
     // This is the robust way to get the userId at runtime.
-    return fetchExams(context.userId, filters);
+    return fetchExams((context as ChatbotAssistantInput).userId, filters);
   }
 );
 
@@ -55,6 +55,25 @@ const findCourseNotes = ai.defineTool(
   async (filters) => fetchNotes(filters)
 );
 
+const chatbotPrompt = ai.definePrompt({
+  name: 'chatbotPrompt',
+  tools: [getExamMarks, findCourseNotes],
+  input: { schema: ChatbotAssistantInputSchema },
+  prompt: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
+- Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
+- You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
+- If you use a tool, present the information back to the user in a friendly, conversational way. Don't just dump the raw data.
+- If the user asks a general question or one based on the provided course notes, answer it based on the context provided.
+- If the provided course notes don't contain the answer, state that clearly and then provide a general answer from your knowledge base.
+- Be encouraging and supportive in your tone.
+
+Contextual Course Notes:
+{{{courseNotes}}}
+
+User's Question:
+{{{question}}}`,
+});
+
 
 export async function chatbotAssistant(input: ChatbotAssistantInput): Promise<ChatbotAssistantOutput> {
   return chatbotAssistantFlow(input);
@@ -67,25 +86,7 @@ const chatbotAssistantFlow = ai.defineFlow(
     outputSchema: ChatbotAssistantOutputSchema,
   },
   async (input) => {
-    // Construct a single prompt to avoid issues with the system/history structure that was causing an internal error.
-    const fullPrompt = `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
-- Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
-- You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
-- If you use a tool, present the information back to the user in a friendly, conversational way. Don't just dump the raw data.
-- If the user asks a general question or one based on the provided course notes, answer it based on the context provided.
-- If the provided course notes don't contain the answer, state that clearly and then provide a general answer from your knowledge base.
-- Be encouraging and supportive in your tone.
-
-Contextual Course Notes:
-${input.courseNotes || 'No notes provided.'}
-
-User's Question:
-${input.question}`;
-
-    const result = await ai.generate({
-      prompt: fullPrompt,
-      tools: [getExamMarks, findCourseNotes],
-    });
+    const result = await chatbotPrompt(input);
 
     const answer = result.text;
     if (!answer) {
