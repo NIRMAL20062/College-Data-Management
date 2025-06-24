@@ -4,44 +4,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Privileged users check
-    function isPrivileged() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
-    }
-
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // User profiles
-    match /users/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid != null;
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Tasks are private to each user
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Helper function to get a user's role data
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    // Helper function to check if a user is privileged
+    function isPrivileged(userId) {
+      return isAuthenticated() && getUserData(userId).isPrivileged == true;
+    }
+
+    // USER PROFILES
+    // A user can read/write their own profile.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      // An authenticated user can create their own profile document.
+      allow create: if isAuthenticated();
+    }
+
+    // USER-SPECIFIC SUBCOLLECTIONS
+
+    // TASKS: These are private. Only the owner can manage their tasks.
     match /users/{userId}/tasks/{taskId} {
-      allow read, write, delete: if request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
-
-    // Exams can be listed by anyone for class average, but only modified by the owner
+    
+    // EXAMS: These have special rules to allow for class average calculation.
     match /users/{userId}/exams/{examId} {
-      allow get, create, update, delete: if request.auth.uid == userId;
-      allow list: if request.auth != null;
+      // The owner can create, update, or delete their own exam record.
+      allow write: if isOwner(userId);
+      
+      // Any authenticated user can *get* a single exam document.
+      // This is required for the collection group query to access the data after filtering.
+      allow get: if isAuthenticated();
+    }
+    
+    // COLLECTION GROUP 'list' RULE FOR EXAMS
+    // This allows the "Class Average" feature to query across all users' exams.
+    match /{path=**}/exams/{examId} {
+      allow list: if isAuthenticated();
     }
 
-    // Announcements can be read by anyone, but only written by privileged users
+    // PUBLIC-READ COLLECTIONS (Announcements, Notes)
     match /announcements/{announcementId} {
-      allow read: if request.auth != null;
-      allow write: if isPrivileged();
+      allow read: if isAuthenticated();
+      // Only privileged users can write to announcements.
+      allow write: if isPrivileged(request.auth.uid);
     }
-
-    // Notes can be read by anyone, but only written by privileged users
+    
     match /notes/{noteId} {
-      allow read: if request.auth != null;
-      allow write: if isPrivileged();
+      allow read: if isAuthenticated();
+      // Only privileged users can write to notes.
+      allow write: if isPrivileged(request.auth.uid);
     }
   }
 }
