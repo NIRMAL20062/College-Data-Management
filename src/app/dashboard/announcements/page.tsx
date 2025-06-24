@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MoreHorizontal, Pin, PlusCircle, Trash2, Edit } from "lucide-react";
+import { MoreHorizontal, Pin, PlusCircle, Trash2, Edit, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   DropdownMenu,
@@ -17,51 +17,81 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
 
 type Announcement = {
-    id: number;
+    id: string;
     pinned: boolean;
     title: string;
-    date: string;
+    date: Timestamp;
     content: string;
 };
 
 export default function AnnouncementsPage() {
   const { isPrivileged } = useAuth();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const { toast } = useToast();
 
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingContent, setEditingContent] = useState("");
 
   const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
 
-  const handleAddAnnouncement = () => {
+  useEffect(() => {
+    const q = query(collection(db, "announcements"), orderBy("date", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const announcementsData: Announcement[] = [];
+      querySnapshot.forEach((doc) => {
+        announcementsData.push({ id: doc.id, ...doc.data() } as Announcement);
+      });
+      announcementsData.sort((a, b) => (b.pinned ? 1 : -1) - (a.pinned ? 1 : -1) || (b.date?.toMillis() ?? 0) - (a.date?.toMillis() ?? 0));
+      setAnnouncements(announcementsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching announcements: ", error);
+      toast({ title: "Error", description: "Could not fetch announcements.", variant: "destructive" });
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
+
+  const handleAddAnnouncement = async () => {
     if (!newTitle.trim() || !newContent.trim()) {
         toast({ title: "Missing Fields", description: "Please fill out both title and content.", variant: "destructive" });
         return;
     }
-    const newAnnouncement = {
-      id: Date.now(),
-      pinned: false,
-      title: newTitle,
-      content: newContent,
-      date: new Date().toISOString().split('T')[0],
-    };
-    setAnnouncements([newAnnouncement, ...announcements]);
-    setNewTitle("");
-    setNewContent("");
-    toast({ title: "Success", description: "Announcement posted successfully." });
+    try {
+      await addDoc(collection(db, "announcements"), {
+        pinned: false,
+        title: newTitle,
+        content: newContent,
+        date: serverTimestamp(),
+      });
+      setNewTitle("");
+      setNewContent("");
+      toast({ title: "Success", description: "Announcement posted successfully." });
+    } catch (error) {
+      console.error("Error adding announcement: ", error);
+      toast({ title: "Error", description: "Failed to post announcement.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!announcementToDelete) return;
-    setAnnouncements(announcements.filter(a => a.id !== announcementToDelete.id));
-    setAnnouncementToDelete(null);
-    toast({ title: "Success", description: "Announcement deleted." });
+    try {
+      await deleteDoc(doc(db, "announcements", announcementToDelete.id));
+      setAnnouncementToDelete(null);
+      toast({ title: "Success", description: "Announcement deleted." });
+    } catch (error) {
+      console.error("Error deleting announcement: ", error);
+      toast({ title: "Error", description: "Failed to delete announcement.", variant: "destructive" });
+    }
   };
 
   const handleEditClick = (announcement: Announcement) => {
@@ -76,22 +106,40 @@ export default function AnnouncementsPage() {
     setEditingContent("");
   };
 
-  const handleSaveEdit = (id: number) => {
+  const handleSaveEdit = async (id: string) => {
     if (!editingTitle.trim() || !editingContent.trim()) {
       toast({ title: "Missing Fields", description: "Title and content cannot be empty.", variant: "destructive" });
       return;
     }
-    setAnnouncements(announcements.map(a => 
-      a.id === id ? { ...a, title: editingTitle, content: editingContent } : a
-    ));
-    handleCancelEdit();
-    toast({ title: "Success", description: "Announcement updated." });
+    try {
+      const docRef = doc(db, "announcements", id);
+      await updateDoc(docRef, {
+        title: editingTitle,
+        content: editingContent,
+      });
+      handleCancelEdit();
+      toast({ title: "Success", description: "Announcement updated." });
+    } catch (error) {
+      console.error("Error updating announcement: ", error);
+      toast({ title: "Error", description: "Failed to update announcement.", variant: "destructive" });
+    }
   };
   
-  const togglePin = (id: number) => {
-    setAnnouncements(announcements.map(a => a.id === id ? { ...a, pinned: !a.pinned } : a).sort((a,b) => (b.pinned ? 1 : -1) - (a.pinned ? 1 : -1) || b.id - a.id));
-    toast({ title: "Success", description: "Pin status updated." });
+  const togglePin = async (id: string, currentPinStatus: boolean) => {
+    try {
+        const docRef = doc(db, "announcements", id);
+        await updateDoc(docRef, { pinned: !currentPinStatus });
+        toast({ title: "Success", description: "Pin status updated." });
+    } catch (error) {
+        console.error("Error updating pin status: ", error);
+        toast({ title: "Error", description: "Failed to update pin status.", variant: "destructive" });
+    }
   };
+
+  const formatDate = (timestamp: Timestamp | null) => {
+    if (!timestamp) return "Just now";
+    return timestamp.toDate().toISOString().split('T')[0];
+  }
 
   const renderAnnouncementCard = (announcement: Announcement) => {
     const isEditing = editingId === announcement.id;
@@ -102,7 +150,7 @@ export default function AnnouncementsPage() {
                 <>
                     <CardHeader>
                         <Input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="text-lg font-semibold"/>
-                        <CardDescription>{announcement.date}</CardDescription>
+                        <CardDescription>{formatDate(announcement.date)}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Textarea value={editingContent} onChange={(e) => setEditingContent(e.target.value)} rows={4}/>
@@ -118,7 +166,7 @@ export default function AnnouncementsPage() {
                         <div className="flex justify-between items-start">
                             <div className="pr-4">
                                 <CardTitle>{announcement.title}</CardTitle>
-                                <CardDescription>{announcement.date}</CardDescription>
+                                <CardDescription>{formatDate(announcement.date)}</CardDescription>
                             </div>
                             {isPrivileged && (
                                 <DropdownMenu>
@@ -130,7 +178,7 @@ export default function AnnouncementsPage() {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => togglePin(announcement.id)}>
+                                        <DropdownMenuItem onClick={() => togglePin(announcement.id, announcement.pinned)}>
                                             <Pin className="mr-2 h-4 w-4" />
                                             {announcement.pinned ? "Unpin" : "Pin"}
                                         </DropdownMenuItem>
@@ -190,24 +238,32 @@ export default function AnnouncementsPage() {
             )}
         </Card>
 
-        {pinnedAnnouncements.length > 0 && (
-          <div className="space-y-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><Pin className="text-primary"/> Pinned</h2>
-              {pinnedAnnouncements.map(renderAnnouncementCard)}
-          </div>
-        )}
+        {loading ? (
+            <div className="flex justify-center items-center p-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        ) : (
+            <>
+                {pinnedAnnouncements.length > 0 && (
+                  <div className="space-y-4">
+                      <h2 className="text-xl font-semibold flex items-center gap-2"><Pin className="text-primary"/> Pinned</h2>
+                      {pinnedAnnouncements.map(renderAnnouncementCard)}
+                  </div>
+                )}
 
-        {otherAnnouncements.length > 0 && (
-          <div className="space-y-4">
-              <h2 className="text-xl font-semibold">{pinnedAnnouncements.length > 0 ? "Other Announcements" : "All Announcements"}</h2>
-              {otherAnnouncements.map(renderAnnouncementCard)}
-          </div>
-        )}
+                {otherAnnouncements.length > 0 && (
+                  <div className="space-y-4">
+                      <h2 className="text-xl font-semibold">{pinnedAnnouncements.length > 0 ? "Other Announcements" : "All Announcements"}</h2>
+                      {otherAnnouncements.map(renderAnnouncementCard)}
+                  </div>
+                )}
 
-        {announcements.length === 0 && (
-            <Card className="flex items-center justify-center p-10">
-                <p className="text-muted-foreground">No announcements have been posted yet.</p>
-            </Card>
+                {announcements.length === 0 && (
+                    <Card className="flex items-center justify-center p-10">
+                        <p className="text-muted-foreground">No announcements have been posted yet.</p>
+                    </Card>
+                )}
+            </>
         )}
 
         <AlertDialog open={!!announcementToDelete} onOpenChange={(open) => !open && setAnnouncementToDelete(null)}>
