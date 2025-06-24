@@ -136,7 +136,7 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-[1fr_350px]">
+    <div className="grid gap-6 md:grid-cols-2">
       <div>
         <Card>
             <CardHeader>
@@ -265,3 +265,5 @@ export default function NotesPage() {
     </div>
   )
 }
+
+    
