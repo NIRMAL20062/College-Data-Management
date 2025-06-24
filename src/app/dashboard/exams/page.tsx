@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Exam = {
     id: string;
@@ -24,23 +25,25 @@ type Exam = {
     date: string;
     obtained: number;
     total: number;
+    examType: 'IT 1/2' | 'Mid Sem' | 'End Sem';
 };
 
 type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
 
-const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id'>) => void; onCancel: () => void }) => {
+const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id' | 'createdAt'>) => void; onCancel: () => void }) => {
     const [name, setName] = useState(exam?.name || "");
     const [subject, setSubject] = useState(exam?.subject || "");
     const [date, setDate] = useState(exam?.date || new Date().toISOString().split("T")[0]);
     const [obtained, setObtained] = useState(exam?.obtained?.toString() || "");
     const [total, setTotal] = useState(exam?.total?.toString() || "100");
+    const [examType, setExamType] = useState<Exam['examType']>(exam?.examType || "Mid Sem");
     const { toast } = useToast();
 
     const handleSubmit = () => {
         const obtainedNum = parseFloat(obtained);
         const totalNum = parseFloat(total);
 
-        if (!name || !subject || !date || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
+        if (!name || !subject || !date || !examType || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
             toast({ title: "Validation Error", description: "Please fill all fields correctly.", variant: "destructive" });
             return;
         }
@@ -49,18 +52,31 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             return;
         }
 
-        onSave({ name, subject, date, obtained: obtainedNum, total: totalNum });
+        onSave({ name, subject, date, obtained: obtainedNum, total: totalNum, examType });
     };
 
     return (
         <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="examType" className="text-right">Exam Type</Label>
+                 <Select value={examType} onValueChange={(value: Exam['examType']) => setExamType(value)}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select an exam type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="IT 1/2">IT 1 / IT 2</SelectItem>
+                        <SelectItem value="Mid Sem">Mid Sem</SelectItem>
+                        <SelectItem value="End Sem">End Sem</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" />
+                <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" placeholder="e.g. Algebra Test" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject" className="text-right">Subject</Label>
-                <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} className="col-span-3" />
+                <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} className="col-span-3" placeholder="e.g. Mathematics"/>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="date" className="text-right">Date</Label>
@@ -101,7 +117,7 @@ export default function ExamsPage() {
     if (!user) return;
     setLoading(true);
     
-    const q = query(collection(db, `users/${user.uid}/exams`), orderBy("createdAt", "desc"));
+    const q = query(collection(db, `users/${user.uid}/exams`), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const examsData: Exam[] = [];
       querySnapshot.forEach((doc) => {
@@ -198,6 +214,7 @@ export default function ExamsPage() {
               <TableRow>
                 <TableHead>Exam Name</TableHead>
                 <TableHead>Subject</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Percentage</TableHead>
@@ -211,6 +228,7 @@ export default function ExamsPage() {
                   <TableRow key={exam.id}>
                     <TableCell className="font-medium">{exam.name}</TableCell>
                     <TableCell>{exam.subject}</TableCell>
+                    <TableCell><Badge variant="secondary">{exam.examType}</Badge></TableCell>
                     <TableCell>{exam.date}</TableCell>
                     <TableCell>{exam.obtained} / {exam.total}</TableCell>
                     <TableCell>
@@ -241,7 +259,7 @@ export default function ExamsPage() {
                 )
               }) : (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No exam records found. Click "Add Exam" to get started.
                     </TableCell>
                 </TableRow>
@@ -251,8 +269,8 @@ export default function ExamsPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
                 <DialogTitle>{editingExam ? 'Edit Exam Record' : 'Add New Exam Record'}</DialogTitle>
                 <DialogDescription>
@@ -282,3 +300,5 @@ export default function ExamsPage() {
     </>
   )
 }
+
+    

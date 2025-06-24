@@ -14,19 +14,28 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, FileText, Download, Trash2, Edit, Loader2, PlusCircle } from "lucide-react";
+import { MoreHorizontal, FileText, Download, Trash2, Edit, Loader2, PlusCircle, Link as LinkIcon, Image as ImageIcon } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
 
 
+type NoteType = 'PDF' | 'Image' | 'Link';
 type Note = {
   id: string;
   name: string;
   date: Timestamp;
   url: string;
+  type: NoteType;
 };
+
+const typeIcons: Record<NoteType, React.ReactNode> = {
+    PDF: <FileText className="h-6 w-6 shrink-0 text-primary"/>,
+    Image: <ImageIcon className="h-6 w-6 shrink-0 text-primary"/>,
+    Link: <LinkIcon className="h-6 w-6 shrink-0 text-primary"/>
+}
 
 export default function NotesPage() {
   const { isPrivileged } = useAuth();
@@ -35,6 +44,7 @@ export default function NotesPage() {
   
   const [newNoteName, setNewNoteName] = useState("");
   const [newNoteUrl, setNewNoteUrl] = useState("");
+  const [newNoteType, setNewNoteType] = useState<NoteType>("PDF");
 
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -77,11 +87,13 @@ export default function NotesPage() {
         name: newNoteName,
         date: serverTimestamp(),
         url: newNoteUrl,
+        type: newNoteType,
       });
 
-      toast({ title: "Note Added", description: `${newNoteName} has been added.` });
+      toast({ title: "Resource Added", description: `${newNoteName} has been added.` });
       setNewNoteName("");
       setNewNoteUrl("");
+      setNewNoteType("PDF");
     } catch (error) {
       console.error("Error adding note: ", error);
       toast({ title: "Error", description: "Failed to add note.", variant: "destructive" });
@@ -93,7 +105,7 @@ export default function NotesPage() {
 
     try {
       await deleteDoc(doc(db, "notes", noteToDelete.id));
-      toast({ title: "Note Deleted", description: "The note has been successfully removed." });
+      toast({ title: "Resource Deleted", description: "The resource has been successfully removed." });
     } catch (error) {
        console.error("Error deleting note from firestore: ", error);
        toast({ title: "Database Error", description: "Could not delete note record.", variant: "destructive"});
@@ -119,10 +131,10 @@ export default function NotesPage() {
 
     try {
         await updateDoc(docRef, { name: editingName.trim() });
-        toast({ title: "Note Renamed", description: "The note has been successfully renamed." });
+        toast({ title: "Resource Renamed", description: "The resource has been successfully renamed." });
     } catch (error) {
         console.error("Error renaming note: ", error);
-        toast({ title: "Error", description: "Failed to rename note.", variant: "destructive"});
+        toast({ title: "Error", description: "Failed to rename resource.", variant: "destructive"});
     }
     handleCancelEdit();
   };
@@ -140,38 +152,51 @@ export default function NotesPage() {
       <div>
         <Card>
             <CardHeader>
-                <CardTitle>Course Notes</CardTitle>
+                <CardTitle>Course Resources</CardTitle>
                 <CardDescription>
                   {isPrivileged 
-                    ? "Add and manage links to notes for all students."
-                    : "Here you can find and open all available course notes."}
+                    ? "Add and manage links to resources for all students."
+                    : "Here you can find and open all available course resources."}
                 </CardDescription>
             </CardHeader>
             {isPrivileged && (
               <CardContent>
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Add New Note</h3>
+                  <h3 className="text-lg font-semibold">Add New Resource Link</h3>
+                   <div className="space-y-2">
+                    <Label htmlFor="note-type">Resource Type</Label>
+                    <Select value={newNoteType} onValueChange={(value: NoteType) => setNewNoteType(value)}>
+                        <SelectTrigger id="note-type">
+                            <SelectValue placeholder="Select resource type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="PDF">PDF Document</SelectItem>
+                            <SelectItem value="Image">Image</SelectItem>
+                            <SelectItem value="Link">Generic Link</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-2">
-                    <Label htmlFor="note-name">Note Name</Label>
+                    <Label htmlFor="note-name">Resource Name</Label>
                     <Input
                       id="note-name"
-                      placeholder="e.g., Chapter 5 Notes"
+                      placeholder="e.g., Chapter 5 Slides"
                       value={newNoteName}
                       onChange={(e) => setNewNoteName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="note-url">Google Drive Link</Label>
+                    <Label htmlFor="note-url">Shareable Link</Label>
                     <Input
                       id="note-url"
-                      placeholder="Paste shareable link here"
+                      placeholder="Paste link from Google Drive, etc."
                       value={newNoteUrl}
                       onChange={(e) => setNewNoteUrl(e.target.value)}
                     />
                   </div>
                   <Button onClick={handleAddNote} className="w-full">
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Note Link
+                    Add Resource Link
                   </Button>
                 </div>
               </CardContent>
@@ -179,7 +204,7 @@ export default function NotesPage() {
         </Card>
       </div>
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Available Notes</h2>
+        <h2 className="text-xl font-semibold">Available Resources</h2>
         {loading ? (
              <div className="flex justify-center items-center p-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -189,7 +214,7 @@ export default function NotesPage() {
             <Card key={note.id}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <FileText className="h-6 w-6 shrink-0 text-primary"/>
+                  {typeIcons[note.type] || <LinkIcon className="h-6 w-6 shrink-0 text-primary"/>}
                   {editingNote?.id === note.id ? (
                      <Input 
                         value={editingName} 
@@ -241,7 +266,7 @@ export default function NotesPage() {
           ))
         ) : (
             <Card className="flex items-center justify-center p-10">
-                <p className="text-muted-foreground">No notes have been added yet.</p>
+                <p className="text-muted-foreground">No resources have been added yet.</p>
             </Card>
         )}
       </div>
@@ -251,7 +276,7 @@ export default function NotesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the note titled "{noteToDelete?.name}" from the database.
+              This action cannot be undone. This will permanently delete the resource titled "{noteToDelete?.name}" from the database.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -265,3 +290,5 @@ export default function NotesPage() {
     </div>
   )
 }
+
+    

@@ -1,14 +1,16 @@
 
 'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowUpRight, BarChart2, BookOpen, ClipboardList, Loader2 } from "lucide-react"
+import { ArrowUpRight, BarChart2, BookOpen, ClipboardList, Loader2, TrendingUp, TrendingDown } from "lucide-react"
 import Link from "next/link"
 import { MotivationalGreeting } from "@/components/dashboard/motivational-greeting"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore"
+import { collection, query, orderBy, limit, onSnapshot, Timestamp, getDocs } from "firebase/firestore"
+import { useAuth } from "@/hooks/use-auth"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type Announcement = {
   id: string;
@@ -17,13 +19,31 @@ type Announcement = {
   date: Timestamp;
 }
 
+type Exam = {
+    id: string;
+    obtained: number;
+    total: number;
+};
+
+type Task = {
+    id: string;
+    done: boolean;
+};
+
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [recentAnnouncements, setRecentAnnouncements] = useState<Announcement[]>([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
 
+  const [examStats, setExamStats] = useState({ average: 0, count: 0, trend: 0 });
+  const [loadingExams, setLoadingExams] = useState(true);
+
+  const [taskStats, setTaskStats] = useState({ completed: 0, total: 0 });
+  const [loadingTasks, setLoadingTasks] = useState(true);
+
+  // Fetch Announcements
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("date", "desc"), limit(3));
-    
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const announcementsData: Announcement[] = [];
         querySnapshot.forEach((doc) => {
@@ -35,9 +55,48 @@ export default function DashboardPage() {
         console.error("Error fetching recent announcements: ", error);
         setLoadingAnnouncements(false);
     });
-    
     return () => unsubscribe();
   }, []);
+
+  // Fetch Exams and Tasks Data
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchDashboardData = async () => {
+        // Fetch Exams
+        setLoadingExams(true);
+        const examsQuery = query(collection(db, `users/${user.uid}/exams`), orderBy("date", "desc"));
+        const examSnapshot = await getDocs(examsQuery);
+        const examsData = examSnapshot.docs.map(doc => doc.data() as Exam);
+        
+        if (examsData.length > 0) {
+            const totalPercentage = examsData.reduce((acc, exam) => acc + (exam.obtained / exam.total) * 100, 0);
+            const average = totalPercentage / examsData.length;
+            
+            let trend = 0;
+            if(examsData.length > 1) {
+                const latestExamPercentage = (examsData[0].obtained / examsData[0].total) * 100;
+                const previousExams = examsData.slice(1);
+                const previousTotalPercentage = previousExams.reduce((acc, exam) => acc + (exam.obtained / exam.total) * 100, 0);
+                const previousAverage = previousTotalPercentage / previousExams.length;
+                trend = latestExamPercentage - previousAverage;
+            }
+            setExamStats({ average, count: examsData.length, trend });
+        }
+        setLoadingExams(false);
+
+        // Fetch Tasks
+        setLoadingTasks(true);
+        const tasksQuery = query(collection(db, `users/${user.uid}/tasks`));
+        const taskSnapshot = await getDocs(tasksQuery);
+        const tasksData = taskSnapshot.docs.map(doc => doc.data() as Task);
+        const completedTasks = tasksData.filter(task => task.done).length;
+        setTaskStats({ completed: completedTasks, total: tasksData.length });
+        setLoadingTasks(false);
+    };
+
+    fetchDashboardData();
+  }, [user]);
 
   const formatDate = (timestamp: Timestamp | null) => {
     if (!timestamp) return "a moment ago";
@@ -47,6 +106,17 @@ export default function DashboardPage() {
       day: 'numeric',
     });
   };
+
+  const TrendIndicator = ({ trend }: { trend: number }) => {
+      if (trend === 0) return null;
+      const isPositive = trend > 0;
+      return (
+          <p className={`text-xs text-muted-foreground flex items-center ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+              {isPositive ? <TrendingUp className="h-4 w-4 mr-1"/> : <TrendingDown className="h-4 w-4 mr-1"/>}
+              {isPositive ? '+' : ''}{trend.toFixed(1)}% from previous average
+          </p>
+      );
+  }
   
   return (
     <div className="space-y-6">
@@ -58,8 +128,12 @@ export default function DashboardPage() {
             <BarChart2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">88.2%</div>
-            <p className="text-xs text-muted-foreground">+2.1% from last month</p>
+            {loadingExams ? <Skeleton className="h-10 w-3/4" /> : (
+                <>
+                    <div className="text-2xl font-bold">{examStats.average.toFixed(1)}%</div>
+                    <TrendIndicator trend={examStats.trend} />
+                </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -68,8 +142,12 @@ export default function DashboardPage() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">3 new exams this semester</p>
+            {loadingExams ? <Skeleton className="h-10 w-1/2" /> : (
+                <>
+                    <div className="text-2xl font-bold">{examStats.count}</div>
+                    <p className="text-xs text-muted-foreground">Total exams recorded</p>
+                </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -78,8 +156,14 @@ export default function DashboardPage() {
             <ClipboardList className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">25/30</div>
-            <p className="text-xs text-muted-foreground">5 tasks remaining this week</p>
+            {loadingTasks ? <Skeleton className="h-10 w-3/4" /> : (
+                <>
+                    <div className="text-2xl font-bold">{taskStats.completed}/{taskStats.total}</div>
+                    <p className="text-xs text-muted-foreground">
+                        {taskStats.total - taskStats.completed > 0 ? `${taskStats.total - taskStats.completed} tasks remaining` : "All tasks done!"}
+                    </p>
+                </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -129,3 +213,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+    
