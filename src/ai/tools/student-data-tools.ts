@@ -71,7 +71,7 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
     if (error.code === 'failed-precondition') {
         return "I can't search the exam records right now because a database index is missing. The developer will need to create one in Firebase for this to work.";
     }
-    return 'An error occurred while trying to fetch exam records.';
+    return `An error occurred while trying to fetch exam records. The database said: "${error.message || 'Unknown error'}". Please tell the user there was a technical problem.`;
   }
 }
 
