@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MoreHorizontal, Pin, PlusCircle, Trash2, Edit, Loader2 } from "lucide-react";
+import { MoreHorizontal, Pin, PlusCircle, Trash2, Edit, Loader2, Share2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import {
   DropdownMenu,
@@ -141,6 +141,13 @@ export default function AnnouncementsPage() {
     return timestamp.toDate().toISOString().split('T')[0];
   }
 
+  const handleShare = (announcement: Announcement) => {
+    const message = `*Announcement: ${announcement.title}*\n\n${announcement.content}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    toast({ title: "Opening WhatsApp", description: "Your message is ready to be shared." });
+  };
+
   const renderAnnouncementCard = (announcement: Announcement) => {
     const isEditing = editingId === announcement.id;
 
@@ -198,6 +205,12 @@ export default function AnnouncementsPage() {
                     <CardContent>
                         <p className="whitespace-pre-wrap">{announcement.content}</p>
                     </CardContent>
+                    <CardFooter className="justify-end">
+                       <Button variant="outline" size="sm" onClick={() => handleShare(announcement)}>
+                           <Share2 className="mr-2 h-4 w-4"/>
+                           Share
+                       </Button>
+                    </CardFooter>
                 </>
             )}
         </Card>
