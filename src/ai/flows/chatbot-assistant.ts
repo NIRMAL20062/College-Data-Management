@@ -25,7 +25,6 @@ const ChatbotAssistantOutputSchema = z.object({
 });
 export type ChatbotAssistantOutput = z.infer<typeof ChatbotAssistantOutputSchema>;
 
-// Define tools at the top level, not inside the flow.
 const getExamMarks = ai.defineTool(
   {
     name: 'getExamMarks',
@@ -66,10 +65,7 @@ const chatbotAssistantFlow = ai.defineFlow(
   },
   async (input) => {
     const result = await ai.generate({
-      history: [
-        {
-          role: 'system',
-          content: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
+      system: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
 - Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
 - You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
   - When using the 'getExamMarks' tool, you MUST pass the user's ID, which is: ${input.userId}.
@@ -79,7 +75,7 @@ const chatbotAssistantFlow = ai.defineFlow(
 - If the provided course notes don't contain the answer, state that clearly and then provide a general answer from your knowledge base.
 - Be encouraging and supportive in your tone.
 Contextual Course Notes: ${input.courseNotes || 'No notes provided.'}`,
-        },
+      history: [
         { role: 'user', content: input.question },
       ],
       tools: [getExamMarks, findCourseNotes],
