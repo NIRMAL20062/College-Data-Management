@@ -138,12 +138,12 @@ export function ChatInterface() {
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
           />
-           <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()}>
+           <Button type="button" variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="Upload Notes">
             <Upload className="h-4 w-4" />
             <span className="sr-only">Upload Notes</span>
           </Button>
-          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".txt,.md" />
-          <Button type="submit" disabled={loading || !input}>
+          <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".txt,.md" aria-label="Notes file upload"/>
+          <Button type="submit" disabled={loading || !input} aria-label="Send message">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>

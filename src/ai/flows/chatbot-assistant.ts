@@ -30,14 +30,17 @@ const getExamMarks = ai.defineTool(
     name: 'getExamMarks',
     description: "Get a student's exam marks for a given semester, subject, or exam type.",
     inputSchema: z.object({
-      userId: z.string().describe("The user's unique ID, which MUST be provided from the prompt."),
       semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
       subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
       examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam.'),
     }),
     outputSchema: z.string(),
   },
-  async ({ userId, ...filters }) => fetchExams(userId, filters)
+  async (filters, context) => {
+    // The tool automatically gets the flow's input as the second argument (context).
+    // This is the robust way to get the userId at runtime.
+    return fetchExams(context.userId, filters);
+  }
 );
 
 const findCourseNotes = ai.defineTool(
@@ -68,8 +71,6 @@ const chatbotAssistantFlow = ai.defineFlow(
       system: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
 - Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
 - You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
-  - When using the 'getExamMarks' tool, you MUST pass the user's ID, which is: ${input.userId}.
-  - Use the 'findCourseNotes' tool to look up shared course materials.
 - If you use a tool, present the information back to the user in a friendly, conversational way. Don't just dump the raw data.
 - If the user asks a general question or one based on the provided course notes, answer it based on the context provided.
 - If the provided course notes don't contain the answer, state that clearly and then provide a general answer from your knowledge base.
@@ -81,6 +82,12 @@ Contextual Course Notes: ${input.courseNotes || 'No notes provided.'}`,
       tools: [getExamMarks, findCourseNotes],
     });
 
-    return { answer: result.text };
+    const answer = result.text;
+    if (!answer) {
+        console.error("Chatbot failed to generate a text response.", JSON.stringify(result));
+        return { answer: "Sorry, I had trouble processing that. Could you try asking in a different way?" };
+    }
+    
+    return { answer };
   }
 );
