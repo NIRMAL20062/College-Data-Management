@@ -1,3 +1,4 @@
+
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight, BarChart2, BookOpen, ClipboardList } from "lucide-react"
@@ -57,23 +58,14 @@ export default function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Recent Announcements</CardTitle>
-          <CardDescription>Stay updated with the latest news and bulletins.</CardDescription>
+          <CardDescription>
+            Stay updated with the latest news. Go to the{" "}
+            <Link href="/dashboard/announcements" className="text-primary hover:underline">Announcements</Link>
+            {" "}page to see all messages.
+            </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Mid-term Exam Schedule</h3>
-                <span className="text-xs text-muted-foreground">Posted 2 days ago</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">The schedule for mid-term exams has been posted. Please check the 'Announcements' page for full details.</p>
-          </div>
-          <div className="p-4 rounded-lg border bg-card">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Library Books Return</h3>
-                <span className="text-xs text-muted-foreground">Posted 5 days ago</span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">All borrowed library books must be returned by the end of this week to avoid fines.</p>
-          </div>
+        <CardContent className="flex items-center justify-center p-10">
+            <p className="text-muted-foreground">Recent announcements will appear here.</p>
         </CardContent>
       </Card>
     </div>
