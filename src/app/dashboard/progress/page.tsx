@@ -9,7 +9,6 @@ import { ClassAverageChart } from "@/components/progress/class-average-chart";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { collection, query, onSnapshot, collectionGroup, where } from "firebase/firestore";
-import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Exam = {
@@ -33,22 +32,35 @@ export default function ProgressPage() {
 
     useEffect(() => {
         if (!user) return;
+        
         setLoading(true);
+        const controller = new AbortController();
+        const { signal } = controller;
 
-        const userExamsQuery = query(collection(db, `users/${user.uid}/exams`));
+        // More efficient query for the current user's exams of the selected type
+        const userExamsQuery = query(
+            collection(db, `users/${user.uid}/exams`),
+            where("examType", "==", selectedExamType)
+        );
         const unsubscribeUserExams = onSnapshot(userExamsQuery, (snapshot) => {
+            if (signal.aborted) return;
             const examsData = snapshot.docs.map(doc => ({ id: doc.id, userId: user.uid, ...doc.data() } as Exam));
             setUserExams(examsData);
         }, (error) => {
             console.error("Error fetching user exams for progress: ", error);
         });
 
-        // Use a collection group query to fetch all exams for class stats
-        const allExamsQuery = query(collectionGroup(db, 'exams'));
+        // This is the corrected query for fetching all students' exams for a specific type.
+        // If this query fails due to a missing index, Firebase will log an error in the browser
+        // console with a link to create the required index automatically.
+        const allExamsQuery = query(
+            collectionGroup(db, 'exams'),
+            where("examType", "==", selectedExamType)
+        );
         const unsubscribeAllExams = onSnapshot(allExamsQuery, (snapshot) => {
+            if (signal.aborted) return;
             const examsData: Exam[] = [];
-             snapshot.forEach(doc => {
-                // We need to get the userId from the document path
+            snapshot.forEach(doc => {
                 const path = doc.ref.path.split('/');
                 const userId = path[path.indexOf('users') + 1];
                 examsData.push({ id: doc.id, userId: userId, ...doc.data() } as Exam);
@@ -56,23 +68,16 @@ export default function ProgressPage() {
             setAllExams(examsData);
             setLoading(false);
         }, (error) => {
-            console.error("Error fetching all exams for progress: ", error);
+            console.error("Error fetching all exams. This might be due to a missing Firestore index. Check the console for a link to create one.", error);
             setLoading(false);
         });
 
         return () => {
+            controller.abort();
             unsubscribeUserExams();
             unsubscribeAllExams();
         };
-    }, [user]);
-
-    const filteredUserExams = useMemo(() => {
-        return userExams.filter(exam => exam.examType === selectedExamType);
-    }, [userExams, selectedExamType]);
-
-    const filteredAllExams = useMemo(() => {
-        return allExams.filter(exam => exam.examType === selectedExamType);
-    }, [allExams, selectedExamType]);
+    }, [user, selectedExamType]);
 
 
     if (loading) {
@@ -87,19 +92,7 @@ export default function ProgressPage() {
         )
     }
 
-    if (userExams.length === 0 && !loading) {
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle>Your Progress</CardTitle>
-                    <CardDescription>Graphs of your performance will appear here once you add exam records.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center justify-center p-20">
-                     <p className="text-muted-foreground">No exam data available to show progress.</p>
-                </CardContent>
-            </Card>
-        )
-    }
+    const hasAnyDataForType = userExams.length > 0 || allExams.length > 0;
 
   return (
     <div className="space-y-6">
@@ -124,10 +117,10 @@ export default function ProgressPage() {
             </CardContent>
         </Card>
 
-        {filteredUserExams.length === 0 ? (
+        {!hasAnyDataForType ? (
             <Card>
                 <CardContent className="flex items-center justify-center p-10">
-                     <p className="text-muted-foreground">You have no data for the selected exam type: <span className="font-semibold">{selectedExamType}</span>.</p>
+                     <p className="text-muted-foreground">No data available for the selected exam type: <span className="font-semibold">{selectedExamType}</span>.</p>
                 </CardContent>
             </Card>
         ) : (
@@ -138,7 +131,7 @@ export default function ProgressPage() {
                         <CardDescription>Your scores for each subject in the <span className="font-semibold">{selectedExamType}</span> exam.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <SubjectPerformanceChart data={filteredUserExams} />
+                        <SubjectPerformanceChart data={userExams} />
                     </CardContent>
                 </Card>
                 <Card>
@@ -148,8 +141,8 @@ export default function ProgressPage() {
                     </CardHeader>
                     <CardContent>
                         <ClassAverageChart 
-                            userExams={filteredUserExams}
-                            allExams={filteredAllExams} 
+                            userExams={userExams}
+                            allExams={allExams} 
                             userId={user!.uid}
                         />
                     </CardContent>
