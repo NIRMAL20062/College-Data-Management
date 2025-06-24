@@ -12,17 +12,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
-import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
 
 function GoogleIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.94 11.06A9.993 9.993 0 0 0 12 2C6.477 2 2 6.477 2 12s4.477 10 10 10c2.47 0 4.75-.88 6.54-2.35" />
-      <path d="M21.99 12H12" />
-      <path d="M22 12a10 10 0 0 1-5.46 9.06" />
-      <path d="M12 2a10 10 0 0 1 9.06 5.46" />
-      <path d="M12 22a10 10 0 0 0 9.06-14.54" />
+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2">
+        <title>Google</title>
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.62-4.25 1.62-5.03 0-9.1-3.9-9.1-8.8s4.07-8.8 9.1-8.8c2.8 0 4.3.88 5.7 2.23l2.42-2.33C18.57 1.94 15.82 0 12.48 0 5.88 0 0 5.58 0 12s5.88 12 12.48 12c7.25 0 12.08-4.76 12.08-11.8 0-.66-.07-1.34-.2-2.02z" />
     </svg>
   );
 }
@@ -39,7 +34,6 @@ const formSchema = z.object({
 
 export function SignUpForm() {
   const { toast } = useToast()
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -54,12 +48,11 @@ export function SignUpForm() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
+      // The useAuth hook will handle user creation in Firestore and redirect.
       toast({
         title: "Sign Up Successful",
         description: "Welcome! Redirecting to your dashboard...",
       });
-      // The onAuthStateChanged listener in useAuth will handle the redirect.
-      router.push("/dashboard");
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -98,9 +91,9 @@ export function SignUpForm() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
           <FormField
             control={form.control}
             name="email"
@@ -133,19 +126,19 @@ export function SignUpForm() {
           </Button>
         </form>
       </Form>
-      <div className="relative">
+       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <Separator />
+          <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground">
+          <span className="bg-background px-2 text-muted-foreground">
             Or continue with
           </span>
         </div>
       </div>
       <Button variant="outline" className="w-full" onClick={handleGoogleSignUp} disabled={loading}>
-        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon className="mr-2 h-4 w-4" />}
-        Sign Up with Google
+        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
+        Sign up with Google
       </Button>
     </div>
   )
