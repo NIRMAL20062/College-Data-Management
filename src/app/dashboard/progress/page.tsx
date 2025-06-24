@@ -3,109 +3,91 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SubjectChart } from "@/components/progress/subject-chart";
-import { TimeChart } from "@/components/progress/time-chart";
-import { ExamTypeChart } from "@/components/progress/exam-type-chart";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SubjectPerformanceChart } from "@/components/progress/subject-performance-chart";
+import { ClassAverageChart } from "@/components/progress/class-average-chart";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, onSnapshot, collectionGroup, where } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Exam = {
     id: string;
+    userId: string;
     subject: string;
     date: string;
     obtained: number;
     total: number;
-    examType: 'IT 1/2' | 'Mid Sem' | 'End Sem';
+    examType: 'IT 1' | 'IT 2' | 'Mid Sem' | 'End Sem';
 };
+
+const examTypes: Exam['examType'][] = ['IT 1', 'IT 2', 'Mid Sem', 'End Sem'];
 
 export default function ProgressPage() {
     const { user } = useAuth();
-    const [exams, setExams] = useState<Exam[]>([]);
+    const [userExams, setUserExams] = useState<Exam[]>([]);
+    const [allExams, setAllExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedExamType, setSelectedExamType] = useState<Exam['examType']>('Mid Sem');
 
     useEffect(() => {
         if (!user) return;
         setLoading(true);
-        
-        const q = query(collection(db, `users/${user.uid}/exams`), orderBy("date", "asc"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+
+        const userExamsQuery = query(collection(db, `users/${user.uid}/exams`));
+        const unsubscribeUserExams = onSnapshot(userExamsQuery, (snapshot) => {
+            const examsData = snapshot.docs.map(doc => ({ id: doc.id, userId: user.uid, ...doc.data() } as Exam));
+            setUserExams(examsData);
+        }, (error) => {
+            console.error("Error fetching user exams for progress: ", error);
+        });
+
+        // Use a collection group query to fetch all exams for class stats
+        const allExamsQuery = query(collectionGroup(db, 'exams'));
+        const unsubscribeAllExams = onSnapshot(allExamsQuery, (snapshot) => {
             const examsData: Exam[] = [];
-            querySnapshot.forEach((doc) => {
-                examsData.push({ id: doc.id, ...doc.data() } as Exam);
+             snapshot.forEach(doc => {
+                // We need to get the userId from the document path
+                const path = doc.ref.path.split('/');
+                const userId = path[path.indexOf('users') + 1];
+                examsData.push({ id: doc.id, userId: userId, ...doc.data() } as Exam);
             });
-            setExams(examsData);
+            setAllExams(examsData);
             setLoading(false);
         }, (error) => {
-            console.error("Error fetching exams for progress: ", error);
+            console.error("Error fetching all exams for progress: ", error);
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribeUserExams();
+            unsubscribeAllExams();
+        };
     }, [user]);
 
-    const subjectPerformanceData = useMemo(() => {
-        const subjectScores: { [key: string]: { totalObtained: number, totalMax: number, count: number } } = {};
-        exams.forEach(exam => {
-            if (!subjectScores[exam.subject]) {
-                subjectScores[exam.subject] = { totalObtained: 0, totalMax: 0, count: 0 };
-            }
-            subjectScores[exam.subject].totalObtained += exam.obtained;
-            subjectScores[exam.subject].totalMax += exam.total;
-            subjectScores[exam.subject].count++;
-        });
+    const filteredUserExams = useMemo(() => {
+        return userExams.filter(exam => exam.examType === selectedExamType);
+    }, [userExams, selectedExamType]);
 
-        const colorPalette = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
-        return Object.entries(subjectScores).map(([subject, data], index) => ({
-            subject,
-            score: parseFloat(((data.totalObtained / data.totalMax) * 100).toFixed(1)),
-            fill: colorPalette[index % colorPalette.length],
-        }));
-    }, [exams]);
+    const filteredAllExams = useMemo(() => {
+        return allExams.filter(exam => exam.examType === selectedExamType);
+    }, [allExams, selectedExamType]);
 
-    const progressOverTimeData = useMemo(() => {
-        return exams.map(exam => ({
-            date: exam.date,
-            score: parseFloat(((exam.obtained / exam.total) * 100).toFixed(1))
-        })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    }, [exams]);
 
-    const examTypePerformanceData = useMemo(() => {
-         const typeScores: { [key in Exam['examType']]: { totalObtained: number, totalMax: number, count: number } } = {
-            'IT 1/2': { totalObtained: 0, totalMax: 0, count: 0 },
-            'Mid Sem': { totalObtained: 0, totalMax: 0, count: 0 },
-            'End Sem': { totalObtained: 0, totalMax: 0, count: 0 },
-        };
-        exams.forEach(exam => {
-            if (exam.examType && typeScores[exam.examType]) {
-                typeScores[exam.examType].totalObtained += exam.obtained;
-                typeScores[exam.examType].totalMax += exam.total;
-                typeScores[exam.examType].count++;
-            }
-        });
-        
-        return Object.entries(typeScores).map(([type, data]) => ({
-            name: type,
-            AverageScore: data.count > 0 ? parseFloat(((data.totalObtained / data.totalMax) * 100).toFixed(1)) : 0,
-            Exams: data.count,
-        }));
-    }, [exams]);
-    
-    if(loading) {
+    if (loading) {
         return (
             <div className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full"/></CardContent></Card>
-                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full"/></CardContent></Card>
-                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-64 w-full"/></CardContent></Card>
+                <Card><CardHeader><Skeleton className="h-8 w-1/4" /></CardHeader><CardContent><Skeleton className="h-10 w-1/3" /></CardContent></Card>
+                <div className="grid gap-6 md:grid-cols-2">
+                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-80 w-full"/></CardContent></Card>
+                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-80 w-full"/></CardContent></Card>
                 </div>
             </div>
         )
     }
 
-    if(exams.length === 0 && !loading) {
+    if (userExams.length === 0 && !loading) {
         return (
              <Card>
                 <CardHeader>
@@ -121,37 +103,59 @@ export default function ProgressPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Progress Over Time</CardTitle>
-            <CardDescription>Your score trend across all recorded exams.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TimeChart data={progressOverTimeData} />
-          </CardContent>
+        <Card>
+            <CardHeader>
+                <CardTitle>Performance Analysis</CardTitle>
+                <CardDescription>Select an exam type to see your detailed performance breakdown and comparison against the class average.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="w-full md:w-1/3">
+                    <Select value={selectedExamType} onValueChange={(value: Exam['examType']) => setSelectedExamType(value)}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select an exam type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {examTypes.map(type => (
+                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardContent>
         </Card>
-         <Card>
-          <CardHeader>
-            <CardTitle>Performance by Subject</CardTitle>
-            <CardDescription>Your average score in each subject.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SubjectChart data={subjectPerformanceData} />
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardHeader>
-            <CardTitle>Performance by Exam Type</CardTitle>
-            <CardDescription>A breakdown of your average scores and number of exams for each exam category.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <ExamTypeChart data={examTypePerformanceData} />
-        </CardContent>
-      </Card>
+
+        {filteredUserExams.length === 0 ? (
+            <Card>
+                <CardContent className="flex items-center justify-center p-10">
+                     <p className="text-muted-foreground">You have no data for the selected exam type: <span className="font-semibold">{selectedExamType}</span>.</p>
+                </CardContent>
+            </Card>
+        ) : (
+             <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Subject Performance</CardTitle>
+                        <CardDescription>Your scores for each subject in the <span className="font-semibold">{selectedExamType}</span> exam.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <SubjectPerformanceChart data={filteredUserExams} />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Class Comparison</CardTitle>
+                        <CardDescription>Your average score vs. the class average in the <span className="font-semibold">{selectedExamType}</span> exam.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ClassAverageChart 
+                            userExams={filteredUserExams}
+                            allExams={filteredAllExams} 
+                            userId={user!.uid}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
+        )}
     </div>
   )
 }
-
-    

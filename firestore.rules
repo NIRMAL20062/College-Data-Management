@@ -1,26 +1,31 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Public collections readable by any authenticated user
+
+    // User-specific data that is private
+    match /users/{userId}/tasks/{taskId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Exams are readable by any authenticated user for stats, but writable only by the owner.
+    match /users/{userId}/exams/{examId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Public data
     match /announcements/{announcementId} {
       allow read: if request.auth != null;
-      // Only privileged users can write (UI handles this logic)
-      allow write: if request.auth != null; 
-    }
-
-    match /notes/{noteId} {
-      allow read: if request.auth != null;
-      // Only privileged users can write (UI handles this logic)
+      // In a real app, use custom claims or a roles collection for secure privileged access.
+      // This rule allows any logged-in user to write if they pass client-side checks.
       allow write: if request.auth != null;
     }
-
-    // User-specific data (tasks, exams, etc.)
-    // A user can only access their own data.
-    match /users/{userId}/{documents=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /notes/{noteId} {
+      allow read: if request.auth != null;
+      // In a real app, use custom claims or a roles collection for secure privileged access.
+      // This rule allows any logged-in user to write if they pass client-side checks.
+      allow write: if request.auth != null;
     }
   }
 }

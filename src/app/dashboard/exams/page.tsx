@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { subjects } from "@/lib/subjects";
 
 type Exam = {
     id: string;
@@ -25,7 +26,7 @@ type Exam = {
     date: string;
     obtained: number;
     total: number;
-    examType: 'IT 1/2' | 'Mid Sem' | 'End Sem';
+    examType: 'IT 1' | 'IT 2' | 'Mid Sem' | 'End Sem';
 };
 
 type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
@@ -64,7 +65,8 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                         <SelectValue placeholder="Select an exam type" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="IT 1/2">IT 1 / IT 2</SelectItem>
+                        <SelectItem value="IT 1">IT 1</SelectItem>
+                        <SelectItem value="IT 2">IT 2</SelectItem>
                         <SelectItem value="Mid Sem">Mid Sem</SelectItem>
                         <SelectItem value="End Sem">End Sem</SelectItem>
                     </SelectContent>
@@ -76,7 +78,14 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject" className="text-right">Subject</Label>
-                <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} className="col-span-3" placeholder="e.g. Mathematics"/>
+                <Select value={subject} onValueChange={setSubject}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {subjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="date" className="text-right">Date</Label>
@@ -300,5 +309,3 @@ export default function ExamsPage() {
     </>
   )
 }
-
-    
