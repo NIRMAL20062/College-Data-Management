@@ -28,18 +28,17 @@ export type ChatbotAssistantOutput = z.infer<typeof ChatbotAssistantOutputSchema
 const getExamMarks = ai.defineTool(
   {
     name: 'getExamMarks',
-    description: "Get a student's exam marks for a given semester, subject, or exam type.",
+    description: "Get a student's exam marks for a given semester, subject, or exam type. You must provide the userId.",
     inputSchema: z.object({
+      userId: z.string().describe("The user's unique ID."),
       semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
       subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
       examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam.'),
     }),
     outputSchema: z.string(),
   },
-  async (filters, context) => {
-    // The tool handler receives the prompt's input as the second argument (context).
-    // This is the robust way to get the userId at runtime.
-    return fetchExams((context as ChatbotAssistantInput).userId, filters);
+  async ({ userId, ...filters }) => {
+    return fetchExams(userId, filters);
   }
 );
 
@@ -60,6 +59,8 @@ const chatbotPrompt = ai.definePrompt({
   tools: [getExamMarks, findCourseNotes],
   input: { schema: ChatbotAssistantInputSchema },
   prompt: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
+The current user's ID is {{{userId}}}. When you use the 'getExamMarks' tool, you MUST pass this ID in the 'userId' parameter.
+
 - Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
 - You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
 - If you use a tool, present the information back to the user in a friendly, conversational way. Don't just dump the raw data.
