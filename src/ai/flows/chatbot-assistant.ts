@@ -58,21 +58,22 @@ const chatbotPrompt = ai.definePrompt({
   name: 'chatbotPrompt',
   tools: [getExamMarks, findCourseNotes],
   input: { schema: ChatbotAssistantInputSchema },
-  prompt: `You are a friendly and helpful AI assistant for a college student, like a real friend. Your name is AcademIQ-Bot.
-The current user's ID is {{{userId}}}. When you use the 'getExamMarks' tool, you MUST pass this ID in the 'userId' parameter.
+  prompt: `You are AcademIQ-Bot, a friendly and helpful AI assistant for a college student.
+Your MAIN GOAL is to answer the user's question.
 
-- Your primary goal is to provide accurate, clear, and well-structured answers using Markdown.
-- You have access to tools to retrieve the student's personal data from the application. Use these tools whenever a student asks about their marks or about available course notes.
-- If you use a tool, present the information back to the user in a friendly, conversational way. Don't just dump the raw data.
-- If the user asks a general question or one based on the provided course notes, answer it based on the context provided.
-- If the provided course notes don't contain the answer, state that clearly and then provide a general answer from your knowledge base.
-- Be encouraging and supportive in your tone.
+The current user's ID is {{{userId}}}. You MUST use this ID when calling the 'getExamMarks' tool.
 
-Contextual Course Notes:
-{{{courseNotes}}}
+Use the tools provided to answer questions about the user's exam marks or course notes.
+If you use a tool, you MUST use the information returned by the tool to construct a friendly, conversational answer for the user. Your final response MUST be a text-based answer that directly addresses their original question.
+
+If the user asks a general question, use the provided "Contextual Course Notes" to answer. If the notes don't have the answer, say so and then answer from your general knowledge.
 
 User's Question:
-{{{question}}}`,
+"{{{question}}}"
+
+Contextual Course Notes:
+"{{{courseNotes}}}"
+`,
 });
 
 
@@ -90,12 +91,12 @@ const chatbotAssistantFlow = ai.defineFlow(
     const result = await chatbotPrompt(input);
 
     const answer = result.text;
+    
+    // This is the critical check. If the model uses a tool but then fails to generate a concluding text response,
+    // the 'text' property will be empty.
     if (!answer) {
-        console.error("Chatbot failed to generate a text response.", JSON.stringify(result, null, 2));
-        if (result.toolRequests?.length) {
-            console.error("AI tried to call tools:", JSON.stringify(result.toolRequests, null, 2));
-        }
-        return { answer: "Oops! It seems like I ran into a little trouble. I'm not sure what happened, but it could be a temporary issue. Please try asking in a different way." };
+      console.error("Chatbot failed to generate a final text response, likely after a tool call.", JSON.stringify(result, null, 2));
+      return { answer: "I was able to find the information you asked for, but I'm having trouble putting it into words. Could you try asking in a slightly different way?" };
     }
     
     return { answer };
