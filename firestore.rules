@@ -3,22 +3,23 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Publicly readable collections for authenticated users
+    
+    // Public collections readable by any authenticated user
     match /announcements/{announcementId} {
       allow read: if request.auth != null;
-      // Writes are gated by app logic (isPrivileged)
-      allow write: if request.auth != null;
+      // Only privileged users can write (UI handles this logic)
+      allow write: if request.auth != null; 
     }
 
     match /notes/{noteId} {
       allow read: if request.auth != null;
-      // Writes are gated by app logic (isPrivileged)
+      // Only privileged users can write (UI handles this logic)
       allow write: if request.auth != null;
     }
 
     // User-specific data (tasks, exams, etc.)
-    match /users/{userId}/{collection}/{documentId} {
-      // Users can only read/write their own data
+    // A user can only access their own data.
+    match /users/{userId}/{documents=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
   }

@@ -3,8 +3,8 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read and write access for all authenticated users.
-    // The app's UI logic restricts who can actually perform uploads (privileged users).
+    // For future use. Allows any authenticated user to read/write files.
+    // In production, you would lock this down further.
     match /{allPaths=**} {
       allow read, write: if request.auth != null;
     }
