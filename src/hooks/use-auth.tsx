@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await setDoc(userDocRef, {
               uid: user.uid,
               email: user.email,
-              displayName: user.displayName,
+              displayName: user.displayName || user.email?.split('@')[0] || 'New User',
               photoURL: user.photoURL,
               createdAt: serverTimestamp(),
               isPrivileged: userIsPrivileged,
