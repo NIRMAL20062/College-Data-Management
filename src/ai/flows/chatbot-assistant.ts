@@ -87,7 +87,8 @@ const chatbotAssistantFlow = ai.defineFlow(
     outputSchema: ChatbotAssistantOutputSchema,
   },
   async (input, context) => {
-    const result = await chatbotPrompt(input, { auth: context.auth });
+    // Pass the entire context object to the prompt invocation.
+    const result = await chatbotPrompt(input, context);
 
     const answer = result.text;
     
