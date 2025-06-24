@@ -25,12 +25,9 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
   const examsRef = collection(db, `users/${userId}/exams`);
   const queryConstraints: QueryConstraint[] = [];
 
+  // Simplify the query to be less restrictive. We will filter more precisely in the code.
   if (filters.semester) {
     queryConstraints.push(where('semester', '==', filters.semester));
-  }
-  if (filters.subject) {
-    queryConstraints.push(where('subject', '>=', filters.subject));
-    queryConstraints.push(where('subject', '<=', filters.subject + '\uf8ff'));
   }
   if (filters.examType) {
     queryConstraints.push(where('examType', '==', filters.examType));
@@ -40,12 +37,21 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
     const q = query(examsRef, ...queryConstraints);
     const querySnapshot = await getDocs(q);
 
-    if (querySnapshot.empty) {
+    // Initial fetch from Firestore
+    let allExamsForQuery = querySnapshot.docs.map(doc => doc.data());
+
+    // If a subject filter exists, apply it here in a case-insensitive way.
+    if (filters.subject) {
+      allExamsForQuery = allExamsForQuery.filter(exam =>
+        exam.subject.toLowerCase().includes(filters.subject!.toLowerCase())
+      );
+    }
+    
+    if (allExamsForQuery.length === 0) {
       return 'I couldn\'t find any matching exam records with those details. Maybe try a different search?';
     }
 
-    const exams = querySnapshot.docs.map(doc => {
-      const data = doc.data();
+    const exams = allExamsForQuery.map(data => {
       return {
         subject: data.subject,
         examType: data.examType,
@@ -74,25 +80,27 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
  */
 export async function fetchNotes(filters: NoteFilters) {
   const notesRef = collection(db, 'notes');
-  const queryConstraints: QueryConstraint[] = [];
-
-  if (filters.nameQuery) {
-    queryConstraints.push(where('name', '>=', filters.nameQuery));
-    queryConstraints.push(where('name', '<=', filters.nameQuery + '\uf8ff'));
-  }
-
-  queryConstraints.push(limit(5)); 
-
+  
   try {
-    const q = query(notesRef, ...queryConstraints);
+    // Fetch all notes and filter in code for more robust searching.
+    const q = query(notesRef, limit(50));
     const querySnapshot = await getDocs(q);
 
-    if (querySnapshot.empty) {
+    let allNotes = querySnapshot.docs.map(doc => doc.data());
+
+    if (filters.nameQuery) {
+        allNotes = allNotes.filter(note => 
+            note.name.toLowerCase().includes(filters.nameQuery!.toLowerCase())
+        );
+    }
+    
+    const limitedNotes = allNotes.slice(0, 5);
+
+    if (limitedNotes.length === 0) {
       return 'I couldn\'t find any matching notes. You can see all available notes on the "Notes" page in the sidebar.';
     }
 
-    const notes = querySnapshot.docs.map(doc => {
-      const data = doc.data();
+    const notes = limitedNotes.map(data => {
       return {
         name: data.name,
         type: data.type,

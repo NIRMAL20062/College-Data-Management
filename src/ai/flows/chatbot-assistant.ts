@@ -33,7 +33,7 @@ const getExamMarks = ai.defineTool(
       userId: z.string().describe("The user's unique ID."),
       semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
       subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
-      examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam.'),
+      examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam. Must be one of: "IT 1", "IT 2", "Mid Sem", "End Sem".'),
     }),
     outputSchema: z.string(),
   },
@@ -91,8 +91,11 @@ const chatbotAssistantFlow = ai.defineFlow(
 
     const answer = result.text;
     if (!answer) {
-        console.error("Chatbot failed to generate a text response.", JSON.stringify(result));
-        return { answer: "Sorry, I had trouble processing that. Could you try asking in a different way?" };
+        console.error("Chatbot failed to generate a text response.", JSON.stringify(result, null, 2));
+        if (result.toolRequests?.length) {
+            console.error("AI tried to call tools:", JSON.stringify(result.toolRequests, null, 2));
+        }
+        return { answer: "Oops! It seems like I ran into a little trouble. I'm not sure what happened, but it could be a temporary issue. Please try asking in a different way." };
     }
     
     return { answer };
