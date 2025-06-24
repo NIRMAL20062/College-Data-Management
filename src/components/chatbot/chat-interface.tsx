@@ -12,6 +12,7 @@ import { chatbotAssistant } from "@/ai/flows/chatbot-assistant"
 import { useToast } from "@/hooks/use-toast"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Message {
   role: "user" | "bot"
@@ -20,7 +21,7 @@ interface Message {
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "bot", content: "Hello! How can I help you with your studies today?" }
+    { role: "bot", content: "Hello! I'm AcademIQ-Bot. Ask me about your course material, your exam scores, or anything else I can help with!" }
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
@@ -28,6 +29,7 @@ export function ChatInterface() {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -56,7 +58,7 @@ export function ChatInterface() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!input || loading) return
+    if (!input || loading || !user) return
 
     setLoading(true)
     const userMessage: Message = { role: "user", content: input }
@@ -67,6 +69,7 @@ export function ChatInterface() {
       const result = await chatbotAssistant({
         question: input,
         courseNotes: courseNotes || "No course notes provided.",
+        userId: user.uid,
       })
       const botMessage: Message = { role: "bot", content: result.answer }
       setMessages(prev => [...prev, botMessage])
@@ -130,7 +133,7 @@ export function ChatInterface() {
         <form onSubmit={handleSubmit} className="flex w-full items-center gap-2">
           <Input
             type="text"
-            placeholder="Type your question..."
+            placeholder="Ask about your notes, marks, or anything else..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
