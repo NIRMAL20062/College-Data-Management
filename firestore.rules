@@ -1,42 +1,39 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Rules for top-level collections
+    // USER PROFILE
+    // Users can read and write their own top-level profile document.
     match /users/{userId} {
-      // User profile documents
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
-
-      // Rules for user sub-collections
-      
-      // Tasks can only be accessed by the user who owns them.
-      match /tasks/{taskId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Exams can be written only by the owner, but READ by any authenticated
-      // user. This is REQUIRED for the collectionGroup query that calculates
-      // the class average across all students.
-      match /exams/{examId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == userId; // Covers create, update, delete
-      }
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // Announcements can be read by any authenticated user,
-    // but only written by a privileged user.
-    match /announcements/{announcementId} {
+    // USER-SPECIFIC SUBCOLLECTIONS (PRIVATE)
+    // Data like tasks are private and only accessible by the owner.
+    match /users/{userId}/tasks/{taskId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // USER-SPECIFIC SUBCOLLECTIONS (PUBLIC READ for AGGREGATION)
+    // Exam data needs to be readable by any authenticated user for the 
+    // class average calculation, but writable only by the owner.
+    match /users/{userId}/exams/{examId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
+      allow write: if request.auth.uid == userId;
     }
 
-    // Notes can be read by any authenticated user,
-    // but only written by a privileged user.
+    // PUBLIC COLLECTIONS
+    // Notes and Announcements are readable by all, but only writable by privileged users.
     match /notes/{noteId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
     }
   }
 }
