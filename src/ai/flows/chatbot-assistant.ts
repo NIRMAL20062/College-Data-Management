@@ -30,7 +30,7 @@ const getExamMarks = ai.defineTool(
     name: 'getExamMarks',
     description: "Get a student's exam marks for a given semester, subject, or exam type. You must provide the userId.",
     inputSchema: z.object({
-      userId: z.string().describe("The user's unique ID."),
+      userId: z.string().describe("The unique ID for the student, which is provided to you in the main prompt."),
       semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
       subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
       examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam. Must be one of: "IT 1", "IT 2", "Mid Sem", "End Sem".'),
@@ -38,6 +38,7 @@ const getExamMarks = ai.defineTool(
     outputSchema: z.string(),
   },
   async ({ userId, ...filters }) => {
+    console.log('getExamMarks tool called with input:', { userId, filters });
     return fetchExams(userId, filters);
   }
 );
@@ -61,7 +62,7 @@ const chatbotPrompt = ai.definePrompt({
   prompt: `You are AcademIQ-Bot, a friendly and helpful AI assistant for a college student.
 Your MAIN GOAL is to answer the user's question.
 
-The current user's ID is {{{userId}}}. You MUST use this ID when calling the 'getExamMarks' tool.
+You are assisting a student whose unique user ID is '{{{userId}}}'. When you need to get the student's exam marks, you MUST call the 'getExamMarks' tool and you MUST pass this user ID in the 'userId' parameter of that tool. Do not ask the user for this ID.
 
 Use the tools provided to answer questions about the user's exam marks or course notes.
 If you use a tool, you MUST use the information returned by the tool to construct a friendly, conversational answer for the user. Your final response MUST be a text-based answer that directly addresses their original question.
