@@ -21,7 +21,6 @@ import { semesters } from "@/lib/subjects";
 
 type Exam = {
     id: string;
-    name: string;
     semester: number;
     subject: string;
     date: string;
@@ -33,7 +32,6 @@ type Exam = {
 type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
 
 const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id' | 'createdAt'>) => void; onCancel: () => void }) => {
-    const [name, setName] = useState(exam?.name || "");
     const [semester, setSemester] = useState(exam?.semester?.toString() || "");
     const [subject, setSubject] = useState(exam?.subject || "");
     const [date, setDate] = useState(exam?.date || new Date().toISOString().split("T")[0]);
@@ -49,7 +47,6 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             const subjects = selectedSemester ? selectedSemester.subjects : [];
             setAvailableSubjects(subjects);
             
-            // If the current subject is not in the new list of available subjects, reset it.
             if (subject && !subjects.includes(subject)) {
                 setSubject("");
             }
@@ -57,9 +54,8 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             setAvailableSubjects([]);
             setSubject("");
         }
-    }, [semester, subject]); // Rerun effect if semester changes
+    }, [semester, subject]);
 
-    // On initial load of an existing exam, populate subjects for its semester
     useEffect(() => {
         if (exam?.semester) {
             const selectedSemester = semesters.find(s => s.semester === exam.semester);
@@ -72,7 +68,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
         const totalNum = parseFloat(total);
         const semesterNum = parseInt(semester, 10);
 
-        if (!name || !subject || !date || !examType || isNaN(semesterNum) || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
+        if (!subject || !date || !examType || isNaN(semesterNum) || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
             toast({ title: "Validation Error", description: "Please fill all fields correctly.", variant: "destructive" });
             return;
         }
@@ -81,7 +77,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             return;
         }
 
-        onSave({ name, semester: semesterNum, subject, date, obtained: obtainedNum, total: totalNum, examType });
+        onSave({ semester: semesterNum, subject, date, obtained: obtainedNum, total: totalNum, examType });
     };
 
     return (
@@ -99,10 +95,6 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                         <SelectItem value="End Sem">End Sem</SelectItem>
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" placeholder="e.g. Algebra Test" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="semester" className="text-right">Semester</Label>
@@ -260,7 +252,6 @@ export default function ExamsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Exam Name</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Date</TableHead>
@@ -274,8 +265,7 @@ export default function ExamsPage() {
                 const percentage = Math.round((exam.obtained / exam.total) * 100);
                 return (
                   <TableRow key={exam.id}>
-                    <TableCell className="font-medium">{exam.name}</TableCell>
-                    <TableCell>{exam.subject}</TableCell>
+                    <TableCell className="font-medium">{exam.subject}</TableCell>
                     <TableCell><Badge variant="secondary">{exam.examType}</Badge></TableCell>
                     <TableCell>{exam.date}</TableCell>
                     <TableCell>{exam.obtained} / {exam.total}</TableCell>
@@ -307,7 +297,7 @@ export default function ExamsPage() {
                 )
               }) : (
                 <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         No exam records found. Click "Add Exam" to get started.
                     </TableCell>
                 </TableRow>
@@ -334,7 +324,7 @@ export default function ExamsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the record for "{examToDelete?.name}".
+              This action cannot be undone. This will permanently delete the {examToDelete?.examType} record for "{examToDelete?.subject}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -348,5 +338,3 @@ export default function ExamsPage() {
     </>
   )
 }
-
-    
