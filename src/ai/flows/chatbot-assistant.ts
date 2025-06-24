@@ -49,32 +49,30 @@ const chatbotAssistantFlow = ai.defineFlow(
     outputSchema: ChatbotAssistantOutputSchema,
   },
   async (input) => {
-    // Define tools dynamically to capture the userId in their scope.
-    const getExamMarks = ai.defineTool(
-      {
-        name: 'getExamMarks',
-        description: "Get a student's exam marks for a given semester, subject, or exam type.",
-        inputSchema: z.object({
-          semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
-          subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
-          examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam.'),
-        }),
-        outputSchema: z.string(),
-      },
-      async (toolInput) => fetchExams(input.userId, toolInput)
-    );
+    // Manually define tool objects to be used in this specific flow execution.
+    // This avoids the "Cannot define new actions at runtime" error and allows
+    // passing the userId to the tool's implementation.
+    const getExamMarks = {
+      name: 'getExamMarks',
+      description: "Get a student's exam marks for a given semester, subject, or exam type.",
+      inputSchema: z.object({
+        semester: z.number().optional().describe('The semester number (e.g., 3 for Semester 3)'),
+        subject: z.string().optional().describe('The name of the subject (e.g., "Probability for Computer Science")'),
+        examType: z.enum(['IT 1', 'IT 2', 'Mid Sem', 'End Sem']).optional().describe('The type of exam.'),
+      }),
+      outputSchema: z.string(),
+      run: async (toolInput: any) => fetchExams(input.userId, toolInput),
+    };
 
-    const findCourseNotes = ai.defineTool(
-      {
-        name: 'findCourseNotes',
-        description: 'Search for available course notes, slides, or other resources.',
-        inputSchema: z.object({
-          nameQuery: z.string().optional().describe('A keyword to search for in the note name (e.g., "Chapter 5")'),
-        }),
-        outputSchema: z.string(),
-      },
-      async (toolInput) => fetchNotes(toolInput)
-    );
+    const findCourseNotes = {
+      name: 'findCourseNotes',
+      description: 'Search for available course notes, slides, or other resources.',
+      inputSchema: z.object({
+        nameQuery: z.string().optional().describe('A keyword to search for in the note name (e.g., "Chapter 5")'),
+      }),
+      outputSchema: z.string(),
+      run: async (toolInput: any) => fetchNotes(toolInput),
+    };
 
     const result = await ai.generate({
         prompt: studentDataPrompt,
