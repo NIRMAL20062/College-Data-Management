@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts"
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
+import { ChartContainer } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 
 type Exam = {
@@ -32,49 +32,32 @@ const chartConfig = {
 export function ClassAverageChart({ userExams, allExams, userId }: ClassAverageChartProps) {
   
   const chartData = useMemo(() => {
-    if (allExams.length === 0) return [];
+    if (!userExams || userExams.length === 0) return [];
 
-    const subjectData: Record<string, {
-        userTotal: number;
-        userCount: number;
-        classTotal: number;
-        classCount: number;
-        studentIds: Set<string>;
-    }> = {};
+    const userSubjects = [...new Set(userExams.map(exam => exam.subject))];
 
-    // Process all exams to calculate class averages and unique student counts
-    allExams.forEach(exam => {
-        if (!subjectData[exam.subject]) {
-            subjectData[exam.subject] = {
-                userTotal: 0,
-                userCount: 0,
-                classTotal: 0,
-                classCount: 0,
-                studentIds: new Set(),
-            };
+    return userSubjects.map(subject => {
+        const userExamsForSubject = userExams.filter(e => e.subject === subject);
+        const userTotalPercentage = userExamsForSubject.reduce((sum, exam) => sum + (exam.obtained / exam.total) * 100, 0);
+        const yourAverage = userTotalPercentage / userExamsForSubject.length;
+
+        const allExamsForSubject = allExams.filter(e => e.subject === subject);
+        let classAverage = 0;
+        let studentCount = 0;
+        if (allExamsForSubject.length > 0) {
+            const classTotalPercentage = allExamsForSubject.reduce((sum, exam) => sum + (exam.obtained / exam.total) * 100, 0);
+            classAverage = classTotalPercentage / allExamsForSubject.length;
+            studentCount = new Set(allExamsForSubject.map(e => e.userId)).size;
         }
-        const percentage = (exam.obtained / exam.total) * 100;
-        subjectData[exam.subject].classTotal += percentage;
-        subjectData[exam.subject].classCount++;
-        subjectData[exam.subject].studentIds.add(exam.userId);
-    });
 
-    // Process user's exams to calculate personal averages
-    userExams.forEach(exam => {
-        if (subjectData[exam.subject]) {
-            const percentage = (exam.obtained / exam.total) * 100;
-            subjectData[exam.subject].userTotal += percentage;
-            subjectData[exam.subject].userCount++;
-        }
+        return {
+            subject,
+            yourAverage: parseFloat(yourAverage.toFixed(1)),
+            classAverage: parseFloat(classAverage.toFixed(1)),
+            students: studentCount,
+        };
     });
-
-    return Object.entries(subjectData).map(([subject, data]) => ({
-        subject,
-        yourAverage: data.userCount > 0 ? parseFloat((data.userTotal / data.userCount).toFixed(1)) : 0,
-        classAverage: parseFloat((data.classTotal / data.classCount).toFixed(1)),
-        students: data.studentIds.size,
-    }));
-  }, [userExams, allExams, userId]);
+}, [userExams, allExams]);
 
   if (!chartData || chartData.length === 0) {
     return <div className="text-center text-muted-foreground p-10">No data available for this chart.</div>;
@@ -83,16 +66,20 @@ export function ClassAverageChart({ userExams, allExams, userId }: ClassAverageC
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="p-2 border bg-background rounded-lg shadow-lg">
-          <p className="font-bold">{label}</p>
-          <p style={{ color: chartConfig.yourAverage.color }}>
-            {`${chartConfig.yourAverage.label}: ${payload[0].value}%`}
-          </p>
-          <p style={{ color: chartConfig.classAverage.color }}>
-            {`${chartConfig.classAverage.label}: ${payload[1].value}%`}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Based on data from {payload[0].payload.students} student(s)
+        <div className="p-3 border bg-background/95 backdrop-blur-sm rounded-lg shadow-lg">
+          <p className="font-bold text-lg mb-2">{label}</p>
+          <div className="space-y-1">
+             <p className="text-sm font-medium flex justify-between items-center" style={{ color: chartConfig.yourAverage.color }}>
+                <span>{`${chartConfig.yourAverage.label}:`}</span>
+                <span className="font-bold ml-4">{`${payload[0].value}%`}</span>
+            </p>
+            <p className="text-sm font-medium flex justify-between items-center" style={{ color: chartConfig.classAverage.color }}>
+                <span>{`${chartConfig.classAverage.label}:`}</span>
+                <span className="font-bold ml-4">{`${payload[1].value}%`}</span>
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3 pt-2 border-t">
+            Class average based on {payload[0].payload.students} student(s)
           </p>
         </div>
       );

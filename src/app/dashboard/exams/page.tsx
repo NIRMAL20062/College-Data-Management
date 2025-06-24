@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp, where, getDocs } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { semesters } from "@/lib/subjects";
 
@@ -184,6 +184,23 @@ export default function ExamsPage() {
         await updateDoc(docRef, examData);
         toast({ title: "Success", description: "Exam record updated." });
       } else {
+        // Check for duplicates before adding a new exam
+        const q = query(
+            collection(db, `users/${user.uid}/exams`),
+            where("semester", "==", examData.semester),
+            where("subject", "==", examData.subject),
+            where("examType", "==", examData.examType)
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            toast({
+                title: "Duplicate Entry",
+                description: "You have already added a record for this subject and exam type.",
+                variant: "destructive",
+            });
+            return;
+        }
+
         // Add new exam
         await addDoc(collection(db, `users/${user.uid}/exams`), {
           ...examData,

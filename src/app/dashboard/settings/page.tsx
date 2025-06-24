@@ -30,8 +30,8 @@ export default function SettingsPage() {
             <CardContent>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                        <h3 className="font-semibold">{user.displayName || user.email}</h3>
-                        <p className="text-sm text-muted-foreground">This determines your permissions.</p>
+                        <p className="font-semibold">{user.email}</p>
+                        <p className="text-sm text-muted-foreground">This is your account email and access level.</p>
                     </div>
                     <Badge variant={isPrivileged ? "default" : "secondary"}>
                         {isPrivileged ? "Privileged" : "Student"}
