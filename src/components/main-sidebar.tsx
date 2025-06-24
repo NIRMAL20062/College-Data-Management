@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Settings,
   StickyNote,
+  BugPlay,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const menuItems = [
   { href: "/dashboard/announcements", icon: Megaphone, label: "Announcements" },
   { href: "/dashboard/chatbot", icon: MessageSquare, label: "Chatbot" },
   { href: "/dashboard/code-analyzer", icon: Code2, label: "Code Analyzer" },
+  { href: "/dashboard/code-debugger", icon: BugPlay, label: "Code Debugger" },
 ];
 
 export function MainSidebar() {
