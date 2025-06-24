@@ -1,11 +1,12 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,13 +14,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Upload, FileText, Download, Trash2, Edit, Loader2 } from "lucide-react";
+import { MoreHorizontal, FileText, Download, Trash2, Edit, Loader2, PlusCircle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { Progress } from "@/components/ui/progress";
 
 
 type Note = {
@@ -27,19 +26,19 @@ type Note = {
   name: string;
   date: Timestamp;
   url: string;
-  storagePath: string;
 };
 
 export default function NotesPage() {
   const { isPrivileged } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  
+  const [newNoteName, setNewNoteName] = useState("");
+  const [newNoteUrl, setNewNoteUrl] = useState("");
+
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [editingName, setEditingName] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,68 +60,36 @@ export default function NotesPage() {
   }, [toast]);
 
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== "application/pdf") {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload a PDF file.",
-        variant: "destructive",
-      });
-      return;
+  const handleAddNote = async () => {
+    if (!newNoteName.trim() || !newNoteUrl.trim()) {
+        toast({ title: "Missing Fields", description: "Please provide both a name and a link.", variant: "destructive" });
+        return;
     }
-    
-    setUploading(true);
-    setUploadProgress(0);
+    try {
+        new URL(newNoteUrl);
+    } catch (_) {
+        toast({ title: "Invalid URL", description: "Please enter a valid link.", variant: "destructive" });
+        return;
+    }
 
-    const storagePath = `notes/${Date.now()}-${file.name}`;
-    const storageRef = ref(storage, storagePath);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    try {
+      await addDoc(collection(db, "notes"), {
+        name: newNoteName,
+        date: serverTimestamp(),
+        url: newNoteUrl,
+      });
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        console.error("Upload error: ", error);
-        toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
-        setUploading(false);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
-          await addDoc(collection(db, "notes"), {
-            name: file.name,
-            date: serverTimestamp(),
-            url: downloadURL,
-            storagePath: storagePath
-          });
-
-          toast({ title: "File Uploaded", description: `${file.name} has been added.` });
-          setUploading(false);
-        });
-      }
-    );
-
-    if(fileInputRef.current) {
-        fileInputRef.current.value = "";
+      toast({ title: "Note Added", description: `${newNoteName} has been added.` });
+      setNewNoteName("");
+      setNewNoteUrl("");
+    } catch (error) {
+      console.error("Error adding note: ", error);
+      toast({ title: "Error", description: "Failed to add note.", variant: "destructive" });
     }
   };
 
   const handleDeleteNoteConfirm = async () => {
     if (!noteToDelete) return;
-    
-    const fileRef = ref(storage, noteToDelete.storagePath);
-    try {
-      await deleteObject(fileRef);
-    } catch (error: any) {
-       if (error.code !== 'storage/object-not-found') {
-         console.error("Error deleting file from storage: ", error);
-         toast({ title: "Storage Error", description: "Could not delete file from storage.", variant: "destructive"});
-       }
-    }
 
     try {
       await deleteDoc(doc(db, "notes", noteToDelete.id));
@@ -149,10 +116,9 @@ export default function NotesPage() {
     if (!editingNote || !editingName.trim()) return;
     
     const docRef = doc(db, "notes", editingNote.id);
-    const finalName = editingName.trim().endsWith('.pdf') ? editingName.trim() : `${editingName.trim()}.pdf`;
 
     try {
-        await updateDoc(docRef, { name: finalName });
+        await updateDoc(docRef, { name: editingName.trim() });
         toast({ title: "Note Renamed", description: "The note has been successfully renamed." });
     } catch (error) {
         console.error("Error renaming note: ", error);
@@ -177,25 +143,37 @@ export default function NotesPage() {
                 <CardTitle>Course Notes</CardTitle>
                 <CardDescription>
                   {isPrivileged 
-                    ? "Upload and manage PDF notes for all students."
-                    : "Here you can find and download all available course notes."}
+                    ? "Add and manage links to notes for all students."
+                    : "Here you can find and open all available course notes."}
                 </CardDescription>
             </CardHeader>
             {isPrivileged && (
               <CardContent>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button onClick={() => fileInputRef.current?.click()} className="w-full" disabled={uploading}>
-                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
-                  {uploading ? `Uploading... ${Math.round(uploadProgress)}%` : "Upload New PDF Note"}
-                </Button>
-                {uploading && <Progress value={uploadProgress} className="w-full mt-2 h-2" />}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Add New Note</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="note-name">Note Name</Label>
+                    <Input
+                      id="note-name"
+                      placeholder="e.g., Chapter 5 Notes"
+                      value={newNoteName}
+                      onChange={(e) => setNewNoteName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="note-url">Google Drive Link</Label>
+                    <Input
+                      id="note-url"
+                      placeholder="Paste shareable link here"
+                      value={newNoteUrl}
+                      onChange={(e) => setNewNoteUrl(e.target.value)}
+                    />
+                  </div>
+                  <Button onClick={handleAddNote} className="w-full">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Note Link
+                  </Button>
+                </div>
               </CardContent>
             )}
         </Card>
@@ -227,14 +205,14 @@ export default function NotesPage() {
                   ) : (
                     <div className="flex flex-col overflow-hidden">
                         <p className="text-sm font-medium truncate" title={note.name}>{note.name}</p>
-                        <p className="text-xs text-muted-foreground">Uploaded: {formatDate(note.date)}</p>
+                        <p className="text-xs text-muted-foreground">Added: {formatDate(note.date)}</p>
                     </div>
                   )}
                 </div>
                 <div className="flex items-center shrink-0">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(note.url)}>
                         <Download className="h-4 w-4" />
-                        <span className="sr-only">Download</span>
+                        <span className="sr-only">Open Link</span>
                     </Button>
                     {isPrivileged && (
                       <DropdownMenu>
@@ -263,7 +241,7 @@ export default function NotesPage() {
           ))
         ) : (
             <Card className="flex items-center justify-center p-10">
-                <p className="text-muted-foreground">No notes have been uploaded yet.</p>
+                <p className="text-muted-foreground">No notes have been added yet.</p>
             </Card>
         )}
       </div>
@@ -273,7 +251,7 @@ export default function NotesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the note titled "{noteToDelete?.name}" from the database and storage.
+              This action cannot be undone. This will permanently delete the note titled "{noteToDelete?.name}" from the database.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
