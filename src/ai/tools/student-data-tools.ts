@@ -23,35 +23,32 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
   }
 
   const examsRef = collection(db, `users/${userId}/exams`);
-  const queryConstraints: QueryConstraint[] = [];
-
-  // Simplify the query to be less restrictive. We will filter more precisely in the code.
-  if (filters.semester) {
-    queryConstraints.push(where('semester', '==', filters.semester));
-  }
-  if (filters.examType) {
-    queryConstraints.push(where('examType', '==', filters.examType));
-  }
 
   try {
-    const q = query(examsRef, ...queryConstraints);
-    const querySnapshot = await getDocs(q);
+    // Fetch all exams for the user to avoid complex queries that require composite indexes.
+    // Filtering will be done in the code, which is fine for the small number of exams per student.
+    const querySnapshot = await getDocs(examsRef);
 
-    // Initial fetch from Firestore
-    let allExamsForQuery = querySnapshot.docs.map(doc => doc.data());
+    let allExams = querySnapshot.docs.map(doc => doc.data());
 
-    // If a subject filter exists, apply it here in a case-insensitive way.
+    // Apply filters in code
+    if (filters.semester) {
+      allExams = allExams.filter(exam => exam.semester === filters.semester);
+    }
+    if (filters.examType) {
+      allExams = allExams.filter(exam => exam.examType === filters.examType);
+    }
     if (filters.subject) {
-      allExamsForQuery = allExamsForQuery.filter(exam =>
+      allExams = allExams.filter(exam =>
         exam.subject.toLowerCase().includes(filters.subject!.toLowerCase())
       );
     }
     
-    if (allExamsForQuery.length === 0) {
+    if (allExams.length === 0) {
       return 'I couldn\'t find any matching exam records with those details. Maybe try a different search?';
     }
 
-    const exams = allExamsForQuery.map(data => {
+    const exams = allExams.map(data => {
       return {
         subject: data.subject,
         examType: data.examType,
@@ -68,10 +65,8 @@ export async function fetchExams(userId: string, filters: ExamFilters) {
 
   } catch (error: any) {
     console.error("Error fetching exams from tool:", error);
-    if (error.code === 'failed-precondition') {
-        return "I can't search the exam records right now because a database index is missing. The developer will need to create one in Firebase for this to work.";
-    }
-    return `An error occurred while trying to fetch exam records. The database said: "${error.message || 'Unknown error'}". Please tell the user there was a technical problem.`;
+    // Return a clear error message for the AI to process.
+    return `An internal database error occurred while trying to fetch exam records. The error was: ${error.message}. Inform the user that there was a technical problem and they should contact support if it persists.`;
   }
 }
 
