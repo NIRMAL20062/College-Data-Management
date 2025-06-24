@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getRedirectResult } from "firebase/auth";
@@ -16,30 +16,37 @@ export default function SignUpPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
 
-  // Handles the result of a Google Sign-In redirect.
+  // This effect handles the result of a Google Sign-In redirect.
+  // It should only run once on component mount.
   useEffect(() => {
-    const checkRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          toast({
-            title: "Sign-Up Successful",
-            description: "Welcome! We're setting up your account...",
-          });
+    const checkRedirect = async () => {
+        try {
+            const result = await getRedirectResult(auth);
+            if (result) {
+                // This means the redirect sign-up was successful.
+                // The `onAuthStateChanged` listener in useAuth will handle user creation and state update.
+                toast({
+                    title: "Sign-Up Successful",
+                    description: "Welcome! We're setting up your account...",
+                });
+            }
+        } catch (error: any) {
+            console.error("Google Sign-Up Error:", error);
+            let description = "An unknown error occurred during sign-up.";
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                description = "An account already exists with the same email. Try signing in with the original method.";
+            } else if (error.message) {
+                description = error.message;
+            }
+            toast({
+                title: "Sign-Up Failed",
+                description: description,
+                variant: "destructive",
+            });
         }
-      } catch (error: any) {
-        toast({
-          title: "Sign-Up Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setIsCheckingRedirect(false);
-      }
     };
-    checkRedirectResult();
+    checkRedirect();
   }, [toast]);
 
   // Redirects if user is already logged in.
@@ -49,8 +56,8 @@ export default function SignUpPage() {
     }
   }, [user, loading, router]);
   
-  // Show loader while checking auth state.
-  if (loading || isCheckingRedirect || user) {
+  // Show loader while checking auth state or if we are about to redirect.
+  if (loading || user) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getRedirectResult } from "firebase/auth";
 import { Loader2, GraduationCap } from "lucide-react";
@@ -15,33 +15,37 @@ export default function LoginPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
 
   // This effect handles the result of a Google Sign-In redirect.
+  // It should only run once on component mount.
   useEffect(() => {
-    const checkRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          // User signed in successfully.
-          // The onAuthStateChanged listener in useAuth will handle the user state update and db initialization.
-          toast({
-            title: "Sign-In Successful",
-            description: "Welcome back! Redirecting to your dashboard...",
-          });
-          // No need to router.push here, the effect below will handle it when `user` state updates.
+    const checkRedirect = async () => {
+        try {
+            const result = await getRedirectResult(auth);
+            if (result) {
+                // This means the redirect sign-in was successful.
+                // The `onAuthStateChanged` listener in useAuth will handle the user state update.
+                toast({
+                    title: "Sign-In Successful",
+                    description: "Welcome back! Redirecting to your dashboard...",
+                });
+            }
+        } catch (error: any) {
+            console.error("Google Sign-In Error:", error);
+            let description = "An unknown error occurred during sign-in.";
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                description = "An account already exists with the same email. Try signing in with the original method.";
+            } else if (error.message) {
+                description = error.message;
+            }
+            toast({
+                title: "Sign-In Failed",
+                description: description,
+                variant: "destructive",
+            });
         }
-      } catch (error: any) {
-        toast({
-          title: "Sign-In Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setIsCheckingRedirect(false);
-      }
     };
-    checkRedirectResult();
+    checkRedirect();
   }, [toast]);
 
   // This effect redirects the user to the dashboard if they are logged in.
@@ -51,8 +55,9 @@ export default function LoginPage() {
     }
   }, [user, loading, router]);
 
-  // Show a loading spinner while checking auth state or redirect result.
-  if (loading || isCheckingRedirect || user) {
+  // Show a loading spinner while the auth state is being determined,
+  // or if the user is logged in and we are about to redirect.
+  if (loading || user) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -60,6 +65,7 @@ export default function LoginPage() {
     );
   }
 
+  // If not loading and no user, show the login page.
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
       <div className="hidden bg-muted lg:flex lg:flex-col lg:items-center lg:justify-center p-12 text-center">
