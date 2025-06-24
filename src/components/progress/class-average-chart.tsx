@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useMemo } from "react";
@@ -89,8 +90,8 @@ export function ClassAverageChart({ userExams, allExams, userId }: ClassAverageC
 
   return (
     <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-      <ResponsiveContainer width="100%" height={350}>
-        <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 60 }}>
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 100 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis 
             dataKey="subject" 
@@ -101,8 +102,8 @@ export function ClassAverageChart({ userExams, allExams, userId }: ClassAverageC
             angle={-45} 
             textAnchor="end" 
             interval={0}
-            height={80}
-            dy={10}
+            height={120}
+            dy={15}
           />
           <YAxis domain={[0, 100]} />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--accent))', opacity: 0.2 }} />
