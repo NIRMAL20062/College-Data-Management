@@ -1,31 +1,36 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // User-specific data that is private
-    match /users/{userId}/tasks/{taskId} {
-      allow read, write: if request.auth.uid == userId;
+    
+    // A helper function to check if a user is privileged by reading their profile
+    function isPrivileged() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
     }
 
-    // Exams are readable by any authenticated user for stats, but writable only by the owner.
+    // Announcements and Notes can be read by any authenticated user,
+    // but only written by privileged users.
+    match /announcements/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isPrivileged();
+    }
+
+    match /notes/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isPrivileged();
+    }
+
+    // Users can read/write their own data (tasks, exams, etc.)
+    match /users/{userId}/{documents=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // For the "Class Comparison" chart, allow any authenticated user to read 
+    // all exam data to calculate class averages.
+    // Writes are still restricted to the user who owns the exam record.
     match /users/{userId}/exams/{examId} {
       allow read: if request.auth != null;
       allow write: if request.auth.uid == userId;
-    }
-
-    // Public data
-    match /announcements/{announcementId} {
-      allow read: if request.auth != null;
-      // In a real app, use custom claims or a roles collection for secure privileged access.
-      // This rule allows any logged-in user to write if they pass client-side checks.
-      allow write: if request.auth != null;
-    }
-    match /notes/{noteId} {
-      allow read: if request.auth != null;
-      // In a real app, use custom claims or a roles collection for secure privileged access.
-      // This rule allows any logged-in user to write if they pass client-side checks.
-      allow write: if request.auth != null;
     }
   }
 }

@@ -4,8 +4,9 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { privilegedEmails } from '@/lib/privileged-users';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -25,14 +26,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isPrivileged, setIsPrivileged] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      if (user?.email) {
-        setIsPrivileged(privilegedEmails.includes(user.email.toLowerCase()));
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        let userIsPrivileged = false;
+
+        if (!userDocSnap.exists()) {
+          // New user: Create their profile in Firestore
+          userIsPrivileged = user.email ? privilegedEmails.includes(user.email.toLowerCase()) : false;
+          try {
+            await setDoc(userDocRef, {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp(),
+              isPrivileged: userIsPrivileged,
+            });
+          } catch (error) {
+            console.error("Error creating user document:", error);
+          }
+        } else {
+          // Existing user: get their privilege status from their profile
+          const userData = userDocSnap.data();
+          userIsPrivileged = userData?.isPrivileged || false;
+        }
+        
+        setUser(user);
+        setIsPrivileged(userIsPrivileged);
       } else {
+        setUser(null);
         setIsPrivileged(false);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
