@@ -1,27 +1,24 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MoreHorizontal, Trash2, Edit } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PlusCircle, MoreHorizontal, Trash2, Edit, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
 
 type Exam = {
-    id: number;
+    id: string;
     name: string;
     subject: string;
     date: string;
@@ -29,25 +26,30 @@ type Exam = {
     total: number;
 };
 
+type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
+
 const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id'>) => void; onCancel: () => void }) => {
     const [name, setName] = useState(exam?.name || "");
     const [subject, setSubject] = useState(exam?.subject || "");
     const [date, setDate] = useState(exam?.date || new Date().toISOString().split("T")[0]);
-    const [obtained, setObtained] = useState(exam?.obtained || 0);
-    const [total, setTotal] = useState(exam?.total || 100);
+    const [obtained, setObtained] = useState(exam?.obtained?.toString() || "");
+    const [total, setTotal] = useState(exam?.total?.toString() || "100");
     const { toast } = useToast();
 
     const handleSubmit = () => {
-        if (!name || !subject || !date || total <= 0) {
+        const obtainedNum = parseFloat(obtained);
+        const totalNum = parseFloat(total);
+
+        if (!name || !subject || !date || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
             toast({ title: "Validation Error", description: "Please fill all fields correctly.", variant: "destructive" });
             return;
         }
-        if (obtained > total) {
+        if (obtainedNum > totalNum) {
             toast({ title: "Validation Error", description: "Obtained score cannot be greater than total score.", variant: "destructive" });
             return;
         }
 
-        onSave({ name, subject, date, obtained, total });
+        onSave({ name, subject, date, obtained: obtainedNum, total: totalNum });
     };
 
     return (
@@ -67,8 +69,8 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="obtained" className="text-right">Score</Label>
                 <div className="col-span-3 grid grid-cols-2 gap-2">
-                    <Input id="obtained" type="number" placeholder="Obtained" value={obtained} onChange={e => setObtained(Number(e.target.value))} />
-                    <Input id="total" type="number" placeholder="Total" value={total} onChange={e => setTotal(Number(e.target.value))} />
+                    <Input id="obtained" type="number" placeholder="Obtained" value={obtained} onChange={e => setObtained(e.target.value)} />
+                    <Input id="total" type="number" placeholder="Total" value={total} onChange={e => setTotal(e.target.value)} />
                 </div>
             </div>
             <DialogFooter>
@@ -87,31 +89,69 @@ const getGradeColor = (percentage: number) => {
 }
 
 export default function ExamsPage() {
+  const { user } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const { toast } = useToast();
 
-  const handleSaveExam = (examData: Omit<Exam, 'id'>) => {
-    if (editingExam) {
+  useEffect(() => {
+    if (!user) return;
+    setLoading(true);
+    
+    const q = query(collection(db, `users/${user.uid}/exams`), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const examsData: Exam[] = [];
+      querySnapshot.forEach((doc) => {
+        examsData.push({ id: doc.id, ...doc.data() } as Exam);
+      });
+      setExams(examsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching exams: ", error);
+      toast({ title: "Error", description: "Could not fetch exam records.", variant: "destructive" });
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, toast]);
+
+  const handleSaveExam = async (examData: Omit<Exam, 'id'>) => {
+    if (!user) return;
+
+    try {
+      if (editingExam) {
         // Update existing exam
-        setExams(exams.map(e => e.id === editingExam.id ? { ...editingExam, ...examData } : e));
+        const docRef = doc(db, `users/${user.uid}/exams`, editingExam.id);
+        await updateDoc(docRef, examData);
         toast({ title: "Success", description: "Exam record updated." });
-    } else {
+      } else {
         // Add new exam
-        const newExam: Exam = { id: Date.now(), ...examData };
-        setExams([newExam, ...exams]);
+        await addDoc(collection(db, `users/${user.uid}/exams`), {
+          ...examData,
+          createdAt: serverTimestamp(),
+        });
         toast({ title: "Success", description: "New exam record added." });
+      }
+      closeDialog();
+    } catch (error) {
+      console.error("Error saving exam:", error);
+      toast({ title: "Error", description: "Failed to save exam record.", variant: "destructive"});
     }
-    closeDialog();
   };
 
-  const handleDeleteExam = () => {
-    if (!examToDelete) return;
-    setExams(exams.filter(e => e.id !== examToDelete.id));
-    setExamToDelete(null);
-    toast({ title: "Success", description: "Exam record deleted." });
+  const handleDeleteExam = async () => {
+    if (!examToDelete || !user) return;
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/exams`, examToDelete.id));
+      setExamToDelete(null);
+      toast({ title: "Success", description: "Exam record deleted." });
+    } catch (error) {
+      console.error("Error deleting exam:", error);
+      toast({ title: "Error", description: "Failed to delete exam record.", variant: "destructive"});
+    }
   };
   
   const openEditDialog = (exam: Exam) => {
@@ -128,6 +168,14 @@ export default function ExamsPage() {
     setIsDialogOpen(false);
     setEditingExam(null);
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <>

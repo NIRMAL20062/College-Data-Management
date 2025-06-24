@@ -8,7 +8,7 @@ import { ArrowUpRight, BarChart2, BookOpen, ClipboardList, Loader2 } from "lucid
 import Link from "next/link"
 import { MotivationalGreeting } from "@/components/dashboard/motivational-greeting"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, limit, getDocs, Timestamp } from "firebase/firestore"
+import { collection, query, orderBy, limit, onSnapshot, Timestamp } from "firebase/firestore"
 
 type Announcement = {
   id: string;
@@ -22,22 +22,21 @@ export default function DashboardPage() {
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
 
   useEffect(() => {
-    const fetchRecentAnnouncements = async () => {
-      try {
-        const q = query(collection(db, "announcements"), orderBy("date", "desc"), limit(3));
-        const querySnapshot = await getDocs(q);
+    const q = query(collection(db, "announcements"), orderBy("date", "desc"), limit(3));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const announcementsData: Announcement[] = [];
         querySnapshot.forEach((doc) => {
           announcementsData.push({ id: doc.id, ...doc.data() } as Announcement);
         });
         setRecentAnnouncements(announcementsData);
-      } catch (error) {
-        console.error("Error fetching recent announcements: ", error);
-      } finally {
         setLoadingAnnouncements(false);
-      }
-    };
-    fetchRecentAnnouncements();
+    }, (error) => {
+        console.error("Error fetching recent announcements: ", error);
+        setLoadingAnnouncements(false);
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const formatDate = (timestamp: Timestamp | null) => {
