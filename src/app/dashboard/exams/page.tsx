@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,11 +17,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { subjects } from "@/lib/subjects";
+import { semesters } from "@/lib/subjects";
 
 type Exam = {
     id: string;
     name: string;
+    semester: number;
     subject: string;
     date: string;
     obtained: number;
@@ -33,18 +34,45 @@ type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
 
 const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id' | 'createdAt'>) => void; onCancel: () => void }) => {
     const [name, setName] = useState(exam?.name || "");
+    const [semester, setSemester] = useState(exam?.semester?.toString() || "");
     const [subject, setSubject] = useState(exam?.subject || "");
     const [date, setDate] = useState(exam?.date || new Date().toISOString().split("T")[0]);
     const [obtained, setObtained] = useState(exam?.obtained?.toString() || "");
     const [total, setTotal] = useState(exam?.total?.toString() || "100");
     const [examType, setExamType] = useState<Exam['examType']>(exam?.examType || "Mid Sem");
+    const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
     const { toast } = useToast();
+
+    useEffect(() => {
+        if (semester) {
+            const selectedSemester = semesters.find(s => s.semester.toString() === semester);
+            const subjects = selectedSemester ? selectedSemester.subjects : [];
+            setAvailableSubjects(subjects);
+            
+            // If the current subject is not in the new list of available subjects, reset it.
+            if (subject && !subjects.includes(subject)) {
+                setSubject("");
+            }
+        } else {
+            setAvailableSubjects([]);
+            setSubject("");
+        }
+    }, [semester, subject]); // Rerun effect if semester changes
+
+    // On initial load of an existing exam, populate subjects for its semester
+    useEffect(() => {
+        if (exam?.semester) {
+            const selectedSemester = semesters.find(s => s.semester === exam.semester);
+            setAvailableSubjects(selectedSemester ? selectedSemester.subjects : []);
+        }
+    }, [exam]);
 
     const handleSubmit = () => {
         const obtainedNum = parseFloat(obtained);
         const totalNum = parseFloat(total);
+        const semesterNum = parseInt(semester, 10);
 
-        if (!name || !subject || !date || !examType || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
+        if (!name || !subject || !date || !examType || isNaN(semesterNum) || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
             toast({ title: "Validation Error", description: "Please fill all fields correctly.", variant: "destructive" });
             return;
         }
@@ -53,7 +81,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             return;
         }
 
-        onSave({ name, subject, date, obtained: obtainedNum, total: totalNum, examType });
+        onSave({ name, semester: semesterNum, subject, date, obtained: obtainedNum, total: totalNum, examType });
     };
 
     return (
@@ -77,13 +105,24 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                 <Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" placeholder="e.g. Algebra Test" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="semester" className="text-right">Semester</Label>
+                 <Select value={semester} onValueChange={setSemester}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {semesters.map(s => <SelectItem key={s.semester} value={s.semester.toString()}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject" className="text-right">Subject</Label>
-                <Select value={subject} onValueChange={setSubject}>
+                <Select value={subject} onValueChange={setSubject} disabled={!semester}>
                     <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
                     <SelectContent>
-                        {subjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {availableSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                 </Select>
             </div>
@@ -92,7 +131,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                 <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="obtained" className="text-right">Score</Label>
+                <Label htmlFor="score" className="text-right">Score</Label>
                 <div className="col-span-3 grid grid-cols-2 gap-2">
                     <Input id="obtained" type="number" placeholder="Obtained" value={obtained} onChange={e => setObtained(e.target.value)} />
                     <Input id="total" type="number" placeholder="Total" value={total} onChange={e => setTotal(e.target.value)} />
@@ -309,3 +348,5 @@ export default function ExamsPage() {
     </>
   )
 }
+
+    
