@@ -1,36 +1,28 @@
-rules_version = '2';
 
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // A helper function to check if a user is privileged by reading their profile
-    function isPrivileged() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
-    }
-
-    // Announcements and Notes can be read by any authenticated user,
-    // but only written by privileged users.
-    match /announcements/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isPrivileged();
-    }
-
-    match /notes/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isPrivileged();
-    }
-
-    // Users can read/write their own data (tasks, exams, etc.)
-    match /users/{userId}/{documents=**} {
+    // Allow read/write access to a user's own data and documents
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // For the "Class Comparison" chart, allow any authenticated user to read 
-    // all exam data to calculate class averages.
-    // Writes are still restricted to the user who owns the exam record.
-    match /users/{userId}/exams/{examId} {
+    // Allow any authenticated user to read all exams for class average calculation.
+    // Write access is still restricted to the user who owns the data by the rule above.
+    match /{path=**}/exams/{examId} {
+        allow read: if request.auth != null;
+    }
+
+    // Allow read access to public collections like announcements and notes
+    match /announcements/{announcementId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
+    }
+
+    match /notes/{noteId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPrivileged == true;
     }
   }
 }
