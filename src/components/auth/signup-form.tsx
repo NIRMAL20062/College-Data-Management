@@ -1,11 +1,10 @@
-
 "use client"
 
 import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signOut, sendEmailVerification, getAdditionalUserInfo } from "firebase/auth"
+import { createUserWithEmailAndPassword, signOut, sendEmailVerification } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -13,15 +12,6 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
 import { privilegedEmails } from "@/lib/privileged-users"
-
-function GoogleIcon() {
-  return (
-    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2">
-        <title>Google</title>
-        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.62-4.25 1.62-5.03 0-9.1-3.9-9.1-8.8s4.07-8.8 9.1-8.8c2.8 0 4.3.88 5.7 2.23l2.42-2.33C18.57 1.94 15.82 0 12.48 0 5.88 0 0 5.58 0 12s5.88 12 12.48 12c7.25 0 12.08-4.76 12.08-11.8 0-.66-.07-1.34-.2-2.02z" />
-    </svg>
-  );
-}
 
 const formSchema = z.object({
   email: z.string().email({
@@ -36,7 +26,6 @@ const formSchema = z.object({
 export function SignUpForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -90,52 +79,6 @@ export function SignUpForm() {
     }
   }
 
-
-  async function handleGoogleSignUp() {
-    setIsGoogleLoading(true);
-    const provider = new GoogleAuthProvider();
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const additionalInfo = getAdditionalUserInfo(result);
-
-      // If it's a new user signing up via Google, send verification email.
-      if (additionalInfo?.isNewUser) {
-        await sendEmailVerification(result.user);
-        await signOut(auth);
-        toast({
-          title: "Verification Email Sent",
-          description: "Your account has been created with Google. Please check your inbox to verify your email before logging in.",
-        });
-      } else {
-        // If it's a returning user, check if their email is verified.
-        if (!result.user.emailVerified) {
-            toast({
-              title: "Email Not Verified",
-              description: "Please check your inbox to verify your email before logging in. A new verification link has been sent.",
-              variant: "destructive",
-            });
-            await sendEmailVerification(result.user);
-            await signOut(auth);
-        } else {
-            // Verified returning user, send them to the dashboard.
-            window.location.href = '/dashboard';
-        }
-      }
-    } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast({
-            title: "Google Sign-Up Failed",
-            description: "Could not complete Google Sign-Up. Please try again.",
-            variant: "destructive",
-        });
-      }
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  }
-  
-  const isAnyLoading = loading || isGoogleLoading;
-
   return (
     <div className="grid gap-4">
       <Form {...form}>
@@ -147,7 +90,7 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="student@sitare.org" {...field} disabled={isAnyLoading} />
+                  <Input placeholder="student@sitare.org" {...field} disabled={loading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -160,32 +103,18 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} disabled={isAnyLoading} />
+                  <Input type="password" placeholder="••••••••" {...field} disabled={loading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isAnyLoading}>
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>
         </form>
       </Form>
-       <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">
-            Or continue with
-          </span>
-        </div>
-      </div>
-      <Button variant="outline" className="w-full" onClick={handleGoogleSignUp} disabled={isAnyLoading}>
-        {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
-        Sign up with Google
-      </Button>
     </div>
   )
 }
