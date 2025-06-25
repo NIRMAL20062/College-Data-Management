@@ -68,8 +68,21 @@ export function LoginForm() {
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
+      const userCredential = await signInWithPopup(auth, provider);
+      // After sign-in, check if the email is verified according to our flow.
+      if (!userCredential.user.emailVerified) {
+        toast({
+          title: "Email Not Verified",
+          description: "Please check your inbox to verify your email before logging in. A new verification link has been sent.",
+          variant: "destructive",
+        });
+        // We must sign the user out if they aren't verified.
+        await sendEmailVerification(userCredential.user);
+        await signOut(auth);
+      } else {
+        // If verified, proceed to dashboard.
+        window.location.href = '/dashboard';
+      }
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
          toast({
@@ -78,7 +91,8 @@ export function LoginForm() {
           variant: "destructive",
         });
       }
-      setIsGoogleLoading(false);
+    } finally {
+        setIsGoogleLoading(false);
     }
   }
 

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signOut, sendEmailVerification } from "firebase/auth"
+import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signOut, sendEmailVerification, getAdditionalUserInfo } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -95,8 +95,32 @@ export function SignUpForm() {
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
+      const result = await signInWithPopup(auth, provider);
+      const additionalInfo = getAdditionalUserInfo(result);
+
+      // If it's a new user signing up via Google, send verification email.
+      if (additionalInfo?.isNewUser) {
+        await sendEmailVerification(result.user);
+        await signOut(auth);
+        toast({
+          title: "Verification Email Sent",
+          description: "Your account has been created with Google. Please check your inbox to verify your email before logging in.",
+        });
+      } else {
+        // If it's a returning user, check if their email is verified.
+        if (!result.user.emailVerified) {
+            toast({
+              title: "Email Not Verified",
+              description: "Please check your inbox to verify your email before logging in. A new verification link has been sent.",
+              variant: "destructive",
+            });
+            await sendEmailVerification(result.user);
+            await signOut(auth);
+        } else {
+            // Verified returning user, send them to the dashboard.
+            window.location.href = '/dashboard';
+        }
+      }
     } catch (error: any) {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({
@@ -105,6 +129,7 @@ export function SignUpForm() {
             variant: "destructive",
         });
       }
+    } finally {
       setIsGoogleLoading(false);
     }
   }

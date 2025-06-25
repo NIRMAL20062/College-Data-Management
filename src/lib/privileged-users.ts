@@ -7,5 +7,6 @@ export const privilegedEmails = [
   'admin@example.com',
   'teacher@example.com',
   'kumar.nirmal2608@gmail.com',
-  'su-24088@sitare.org'
+  'su-24088@sitare.org',
+  'nirk383@gmail.com'
 ];
