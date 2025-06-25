@@ -1,62 +1,28 @@
 
 'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getRedirectResult } from "firebase/auth";
 import { Loader2, GraduationCap } from "lucide-react";
 
 import { LoginForm } from "@/components/auth/login-form";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
-  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
 
   useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          toast({
-            title: "Sign-In Successful",
-            description: "Welcome back! Redirecting to your dashboard...",
-          });
-        }
-      })
-      .catch((error: any) => {
-        console.error("Google Sign-In Redirect Error:", error);
-        let description = "An unknown error occurred during sign-in.";
-        if (error.code === 'auth/account-exists-with-different-credential') {
-          description = "An account already exists with the same email. Please sign in with your original method.";
-        }
-        toast({
-          title: "Sign-In Failed",
-          description: description,
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsProcessingRedirect(false);
-      });
-  }, [toast]);
-
-  const isLoading = authLoading || isProcessingRedirect;
-
-  useEffect(() => {
-    if (!isLoading && user) {
+    if (!loading && user) {
       router.push("/dashboard");
     }
-  }, [isLoading, user, router]);
+  }, [loading, user, router]);
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Finalizing authentication...</p>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
       </div>
     );
   }

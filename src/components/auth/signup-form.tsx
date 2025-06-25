@@ -5,7 +5,7 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { signInWithRedirect, GoogleAuthProvider, createUserWithEmailAndPassword } from "firebase/auth"
+import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -78,15 +78,24 @@ export function SignUpForm() {
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithRedirect(auth, provider);
-      // The user is now redirected to Google. The result is handled on the page
-      // when they are redirected back.
+      await signInWithPopup(auth, provider);
+      // After the popup is successful, the onAuthStateChanged listener in useAuth
+      // will handle setting the user, and the page's useEffect will redirect.
+      toast({
+        title: "Sign-Up Successful",
+        description: "Welcome! We're setting up your account...",
+      });
     } catch (error: any) {
+      let description = "Could not complete Google Sign-Up. Please try again.";
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        description = "An account already exists with this email. Try signing in with the original method.";
+      }
       toast({
         title: "Google Sign-Up Failed",
-        description: "Could not initiate Google Sign-Up. Please try again.",
+        description: description,
         variant: "destructive",
       });
+    } finally {
       setIsGoogleLoading(false);
     }
   }
