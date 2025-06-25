@@ -89,7 +89,14 @@ export function SignUpForm() {
       let description = "Could not complete Google Sign-Up. Please try again.";
       if (error.code === 'auth/account-exists-with-different-credential') {
         description = "An account already exists with this email. Try signing in with the original method.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        description = "Google Sign-In is not enabled for this project. Please enable it in the Firebase Console.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        description = "The sign-up pop-up was closed before completing.";
       }
+      
+      console.error("Google Sign-Up Error:", error);
+
       toast({
         title: "Google Sign-Up Failed",
         description: description,
