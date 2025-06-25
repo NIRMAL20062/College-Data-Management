@@ -92,12 +92,14 @@ export function LoginForm() {
       await signInWithPopup(auth, provider);
       window.location.href = '/dashboard';
     } catch (error: any) {
-      console.error(error);
-      toast({
-        title: "GitHub Sign-In Failed",
-        description: "Could not sign in with GitHub. Please try again.",
-        variant: "destructive",
-      });
+      if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
+        console.error(error);
+        toast({
+          title: "GitHub Sign-In Failed",
+          description: "Could not sign in with GitHub. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
