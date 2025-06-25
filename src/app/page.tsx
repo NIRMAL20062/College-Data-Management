@@ -18,17 +18,16 @@ export default function LoginPage() {
   const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
 
   useEffect(() => {
-    const processRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
+    getRedirectResult(auth)
+      .then((result) => {
         if (result) {
           toast({
             title: "Sign-In Successful",
             description: "Welcome back! Redirecting to your dashboard...",
           });
-          // The onAuthStateChanged listener in useAuth will handle the user state.
         }
-      } catch (error: any) {
+      })
+      .catch((error: any) => {
         console.error("Google Sign-In Redirect Error:", error);
         let description = "An unknown error occurred during sign-in.";
         if (error.code === 'auth/account-exists-with-different-credential') {
@@ -39,27 +38,21 @@ export default function LoginPage() {
           description: description,
           variant: "destructive",
         });
-      } finally {
+      })
+      .finally(() => {
         setIsProcessingRedirect(false);
-      }
-    };
-
-    processRedirectResult();
+      });
   }, [toast]);
 
+  const isLoading = authLoading || isProcessingRedirect;
+
   useEffect(() => {
-    // Redirect if the user is logged in and all loading is complete.
-    if (!authLoading && !isProcessingRedirect && user) {
+    if (!isLoading && user) {
       router.push("/dashboard");
     }
-  }, [user, authLoading, isProcessingRedirect, router]);
+  }, [isLoading, user, router]);
 
-  // The loader should only be shown while auth state is being determined
-  // or a redirect is being processed.
-  const showLoader = authLoading || isProcessingRedirect;
-
-  // If we're done loading and there's no user, show the login page.
-  if (showLoader) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -68,8 +61,6 @@ export default function LoginPage() {
     );
   }
 
-  // If a user is somehow already present, the useEffect will redirect them.
-  // We only show the login form if there is no user and we are done loading.
   if (!user) {
     return (
         <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
@@ -97,7 +88,8 @@ export default function LoginPage() {
       );
   }
 
-  // This is a fallback, the redirect should have already happened.
+  // If user exists, but we're not loading, the useEffect above will redirect.
+  // We show a loader as a fallback.
   return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

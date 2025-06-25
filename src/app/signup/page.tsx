@@ -19,16 +19,16 @@ export default function SignUpPage() {
   const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
 
   useEffect(() => {
-    const processRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
+    getRedirectResult(auth)
+      .then((result) => {
         if (result) {
           toast({
             title: "Sign-Up Successful",
             description: "Welcome! We're setting up your account...",
           });
         }
-      } catch (error: any) {
+      })
+      .catch((error: any) => {
         console.error("Google Sign-Up Redirect Error:", error);
         let description = "An unknown error occurred during sign-up.";
         if (error.code === 'auth/account-exists-with-different-credential') {
@@ -39,26 +39,21 @@ export default function SignUpPage() {
           description: description,
           variant: "destructive",
         });
-      } finally {
+      })
+      .finally(() => {
         setIsProcessingRedirect(false);
-      }
-    };
-    
-    processRedirectResult();
+      });
   }, [toast]);
 
+  const isLoading = authLoading || isProcessingRedirect;
+
   useEffect(() => {
-    // Redirect if the user is logged in and all loading is complete.
-    if (!authLoading && !isProcessingRedirect && user) {
+    if (!isLoading && user) {
       router.push("/dashboard");
     }
-  }, [user, authLoading, isProcessingRedirect, router]);
+  }, [isLoading, user, router]);
 
-  // The loader should only be shown while auth state is being determined
-  // or a redirect is being processed.
-  const showLoader = authLoading || isProcessingRedirect;
-
-  if (showLoader) {
+  if (isLoading) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -67,8 +62,6 @@ export default function SignUpPage() {
     );
   }
 
-  // If a user is somehow already present, the useEffect will redirect them.
-  // We only show the signup form if there is no user and we are done loading.
   if (!user) {
       return (
         <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
@@ -102,7 +95,7 @@ export default function SignUpPage() {
       );
   }
   
-  // This is a fallback, the redirect should have already happened.
+  // Fallback loader for redirecting
   return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
