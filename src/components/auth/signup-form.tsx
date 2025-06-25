@@ -35,6 +35,7 @@ const formSchema = z.object({
 export function SignUpForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,7 +49,7 @@ export function SignUpForm() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
-      // The useAuth hook will handle user creation in Firestore and redirect.
+      // The parent page and useAuth hook will handle the redirect.
       toast({
         title: "Sign Up Successful",
         description: "Welcome! Redirecting to your dashboard...",
@@ -63,7 +64,7 @@ export function SignUpForm() {
       } else {
         toast({
           title: "Sign Up Failed",
-          description: error.message,
+          description: "Could not create account. Please try again.",
           variant: "destructive",
         });
       }
@@ -74,21 +75,23 @@ export function SignUpForm() {
 
 
   async function handleGoogleSignUp() {
-    setLoading(true);
+    setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithRedirect(auth, provider);
-      // The user will be redirected to Google, and then back to the login page
-      // where the getRedirectResult hook will handle the user session.
+      // The user is now redirected to Google. The result is handled on the page
+      // when they are redirected back.
     } catch (error: any) {
       toast({
         title: "Google Sign-Up Failed",
-        description: error.message,
+        description: "Could not initiate Google Sign-Up. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
+      setIsGoogleLoading(false);
     }
   }
+  
+  const isAnyLoading = loading || isGoogleLoading;
 
   return (
     <div className="grid gap-4">
@@ -101,7 +104,7 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="student@example.com" {...field} />
+                  <Input placeholder="student@example.com" {...field} disabled={isAnyLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -114,13 +117,13 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} />
+                  <Input type="password" placeholder="••••••••" {...field} disabled={isAnyLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={isAnyLoading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>
@@ -136,8 +139,8 @@ export function SignUpForm() {
           </span>
         </div>
       </div>
-      <Button variant="outline" className="w-full" onClick={handleGoogleSignUp} disabled={loading}>
-        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
+      <Button variant="outline" className="w-full" onClick={handleGoogleSignUp} disabled={isAnyLoading}>
+        {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
         Sign up with Google
       </Button>
     </div>

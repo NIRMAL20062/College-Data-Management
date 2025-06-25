@@ -16,16 +16,13 @@ export default function SignUpPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
+  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true);
 
   useEffect(() => {
-    // This effect should only run once on mount to check for a redirect result.
-    const checkRedirectResult = async () => {
+    const processRedirectResult = async () => {
       try {
         const result = await getRedirectResult(auth);
         if (result) {
-          // A successful sign-up via redirect has occurred.
-          // The onAuthStateChanged listener in useAuth will handle user creation.
           toast({
             title: "Sign-Up Successful",
             description: "Welcome! We're setting up your account...",
@@ -43,31 +40,30 @@ export default function SignUpPage() {
           variant: "destructive",
         });
       } finally {
-        setIsCheckingRedirect(false);
+        setIsProcessingRedirect(false);
       }
     };
     
-    checkRedirectResult();
+    processRedirectResult();
   }, [toast]);
 
   useEffect(() => {
-    // This effect handles redirecting the user if they are logged in.
-    if (!authLoading && user) {
+    if (!isProcessingRedirect && !authLoading && user) {
       router.push("/dashboard");
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, isProcessingRedirect, router]);
 
-  // Show a loading spinner while checking for a redirect result,
-  // while the main auth hook is loading, or if the user is already logged in.
-  if (isCheckingRedirect || authLoading || user) {
+  const showLoader = isProcessingRedirect || authLoading || user;
+
+  if (showLoader) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Finalizing authentication...</p>
       </div>
     );
   }
 
-  // If we're done with all checks and there's no user, show the sign-up form.
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
        <div className="flex items-center justify-center py-12">

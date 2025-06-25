@@ -2,54 +2,47 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import { Loader2 } from "lucide-react"
+import { signInWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth"
+import { auth } from "@/lib/firebase"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
-import { signInWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth"
-import { auth } from "@/lib/firebase"
-import { Loader2 } from "lucide-react"
-import Link from "next/link"
 
-const formSchema = z.object({
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  password: z.string().min(1, {
-    message: "Password is required.",
-  }),
+const loginFormSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(1, { message: "Password is required." }),
 })
 
 function GoogleIcon() {
   return (
     <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2">
-        <title>Google</title>
-        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.62-4.25 1.62-5.03 0-9.1-3.9-9.1-8.8s4.07-8.8 9.1-8.8c2.8 0 4.3.88 5.7 2.23l2.42-2.33C18.57 1.94 15.82 0 12.48 0 5.88 0 0 5.58 0 12s5.88 12 12.48 12c7.25 0 12.08-4.76 12.08-11.8 0-.66-.07-1.34-.2-2.02z" />
+      <title>Google</title>
+      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.3 1.62-4.25 1.62-5.03 0-9.1-3.9-9.1-8.8s4.07-8.8 9.1-8.8c2.8 0 4.3.88 5.7 2.23l2.42-2.33C18.57 1.94 15.82 0 12.48 0 5.88 0 0 5.58 0 12s5.88 12 12.48 12c7.25 0 12.08-4.76 12.08-11.8 0-.66-.07-1.34-.2-2.02z" />
     </svg>
   );
 }
 
-
 export function LoginForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+  const form = useForm<z.infer<typeof loginFormSchema>>({
+    resolver: zodResolver(loginFormSchema),
+    defaultValues: { email: "", password: "" },
   })
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      // The useAuth hook will detect the new user state and handle the redirect.
+      // The parent page and useAuth hook will handle the redirect.
       toast({
         title: "Login Successful",
         description: "Redirecting to your dashboard...",
@@ -66,34 +59,26 @@ export function LoginForm() {
   }
 
   async function handleGoogleSignIn() {
-    setLoading(true);
+    setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      // This will trigger a full page redirect.
-      // The result is handled on the login page after the user returns.
       await signInWithRedirect(auth, provider);
+      // The user is now redirected to Google. The result is handled on the page
+      // when they are redirected back.
     } catch (error: any) {
       toast({
         title: "Google Sign-In Failed",
-        description: error.message,
+        description: "Could not initiate Google Sign-In. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
+      setIsGoogleLoading(false);
     }
   }
 
   async function handlePasswordReset() {
     const email = form.getValues("email");
-    if (!email) {
-      form.setError("email", {type: "manual", message: "Please enter your email to reset password."})
-      return;
-    }
-     if (form.getFieldState("email").invalid) {
-       toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address.",
-        variant: "destructive",
-      });
+    if (!email || form.getFieldState("email").invalid) {
+      form.setError("email", { type: "manual", message: "Please enter a valid email to reset password." })
       return;
     }
 
@@ -107,13 +92,15 @@ export function LoginForm() {
     } catch (error: any) {
       toast({
         title: "Password Reset Failed",
-        description: error.message,
+        description: "Could not send reset email. Please check the address and try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   }
+
+  const isAnyLoading = loading || isGoogleLoading;
 
   return (
     <div className="grid gap-4">
@@ -126,7 +113,7 @@ export function LoginForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="student@example.com" {...field} />
+                  <Input placeholder="student@example.com" {...field} disabled={isAnyLoading}/>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -142,21 +129,21 @@ export function LoginForm() {
                   <Button
                       type="button"
                       variant="link"
-                      className="ml-auto inline-block text-sm underline p-0 h-auto"
+                      className="ml-auto inline-block h-auto p-0 text-sm underline"
                       onClick={handlePasswordReset}
-                      disabled={loading}
+                      disabled={isAnyLoading}
                   >
                       Forgot your password?
                   </Button>
                 </div>
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} />
+                  <Input type="password" placeholder="••••••••" {...field} disabled={isAnyLoading}/>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={isAnyLoading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Login
           </Button>
@@ -172,13 +159,13 @@ export function LoginForm() {
           </span>
         </div>
       </div>
-      <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
-        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
+      <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isAnyLoading}>
+        {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <GoogleIcon />}
         Login with Google
       </Button>
       <div className="mt-4 text-center text-sm">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="underline">
+        <Link href="/signup" className="underline" aria-disabled={isAnyLoading}>
           Sign up
         </Link>
       </div>
