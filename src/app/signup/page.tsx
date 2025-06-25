@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getRedirectResult } from "firebase/auth";
@@ -13,51 +13,53 @@ import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
 
 export default function SignUpPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const [isCheckingRedirect, setIsCheckingRedirect] = useState(true);
 
-  // This effect handles the result of a Google Sign-In redirect.
-  // It should only run once on component mount.
   useEffect(() => {
-    const checkRedirect = async () => {
-        try {
-            const result = await getRedirectResult(auth);
-            if (result) {
-                // This means the redirect sign-up was successful.
-                // The `onAuthStateChanged` listener in useAuth will handle user creation and state update.
-                toast({
-                    title: "Sign-Up Successful",
-                    description: "Welcome! We're setting up your account...",
-                });
-            }
-        } catch (error: any) {
-            console.error("Google Sign-Up Error:", error);
-            let description = "An unknown error occurred during sign-up.";
-            if (error.code === 'auth/account-exists-with-different-credential') {
-                description = "An account already exists with the same email. Try signing in with the original method.";
-            } else if (error.message) {
-                description = error.message;
-            }
-            toast({
-                title: "Sign-Up Failed",
-                description: description,
-                variant: "destructive",
-            });
+    // This effect should only run once on mount to check for a redirect result.
+    const checkRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          // A successful sign-up via redirect has occurred.
+          // The onAuthStateChanged listener in useAuth will handle user creation.
+          toast({
+            title: "Sign-Up Successful",
+            description: "Welcome! We're setting up your account...",
+          });
         }
+      } catch (error: any) {
+        console.error("Google Sign-Up Redirect Error:", error);
+        let description = "An unknown error occurred during sign-up.";
+        if (error.code === 'auth/account-exists-with-different-credential') {
+          description = "An account already exists with this email. Try signing in with the original method.";
+        }
+        toast({
+          title: "Sign-Up Failed",
+          description: description,
+          variant: "destructive",
+        });
+      } finally {
+        setIsCheckingRedirect(false);
+      }
     };
-    checkRedirect();
+    
+    checkRedirectResult();
   }, [toast]);
 
-  // Redirects if user is already logged in.
   useEffect(() => {
-    if (!loading && user) {
+    // This effect handles redirecting the user if they are logged in.
+    if (!authLoading && user) {
       router.push("/dashboard");
     }
-  }, [user, loading, router]);
-  
-  // Show loader while checking auth state or if we are about to redirect.
-  if (loading || user) {
+  }, [user, authLoading, router]);
+
+  // Show a loading spinner while checking for a redirect result,
+  // while the main auth hook is loading, or if the user is already logged in.
+  if (isCheckingRedirect || authLoading || user) {
      return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -65,6 +67,7 @@ export default function SignUpPage() {
     );
   }
 
+  // If we're done with all checks and there's no user, show the sign-up form.
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
        <div className="flex items-center justify-center py-12">
