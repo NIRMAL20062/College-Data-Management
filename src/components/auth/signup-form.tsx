@@ -5,13 +5,14 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword } from "firebase/auth"
+import { signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, getAdditionalUserInfo, signOut } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
+import { privilegedEmails } from "@/lib/privileged-users"
 
 function GoogleIcon() {
   return (
@@ -47,6 +48,20 @@ export function SignUpForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
+    const email = values.email.toLowerCase();
+    const emailDomain = email.split('@')[1];
+    const isWhitelisted = privilegedEmails.includes(email);
+
+    if (emailDomain !== 'sitare.org' && !isWhitelisted) {
+        toast({
+            title: "Sign Up Forbidden",
+            description: "You are not from Sitare University.",
+            variant: "destructive",
+        });
+        setLoading(false);
+        return;
+    }
+
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
       // The parent page's useAuth hook will handle the redirect.
@@ -73,27 +88,51 @@ export function SignUpForm() {
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // On success, navigate directly to the dashboard.
-      // The AuthProvider will verify the session on the dashboard page.
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const email = user.email;
+
+      // This is a special check to see if the user was just created.
+      const isNewUser = getAdditionalUserInfo(result)?.isNewUser;
+
+      // If a new user was created, we must enforce the domain policy.
+      if (isNewUser) {
+        if (!email) {
+          await user.delete(); // Clean up the user if email is missing
+          throw new Error("Your Google account does not have an email address associated with it.");
+        }
+
+        const emailDomain = email.split('@')[1];
+        const isWhitelisted = privilegedEmails.includes(email.toLowerCase());
+
+        if (emailDomain !== 'sitare.org' && !isWhitelisted) {
+          // If not from the allowed domain and not on the whitelist, deny access.
+          await user.delete(); // Delete the user from Firebase Auth
+          await signOut(auth); // Sign them out on the client
+          toast({
+            title: "Access Denied",
+            description: "You are not from Sitare University.",
+            variant: "destructive",
+          });
+          setIsGoogleLoading(false);
+          return; // Stop the function here
+        }
+      }
+      
+      // If it's an existing user, or a valid new user, perform a hard redirect to the dashboard.
       window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/popup-closed-by-user') {
-        console.warn('Google Sign-Up popup closed by user.');
+        // This is not a real error, so we just stop loading and let the user try again.
         setIsGoogleLoading(false);
-        return;
-      }
-      
-      let description = "Could not complete Google Sign-Up. Please try again.";
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        description = "An account already exists with this email. Try signing in with the original method.";
+        return; 
       }
       
       console.error("Google Sign-Up Error:", error);
 
       toast({
         title: "Google Sign-Up Failed",
-        description: description,
+        description: "Could not complete Google Sign-Up. Please try again.",
         variant: "destructive",
       });
       setIsGoogleLoading(false);
@@ -113,7 +152,7 @@ export function SignUpForm() {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="student@example.com" {...field} disabled={isAnyLoading} />
+                  <Input placeholder="student@sitare.org" {...field} disabled={isAnyLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
