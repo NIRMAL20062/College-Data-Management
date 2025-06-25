@@ -70,13 +70,19 @@ export function LoginForm() {
         description: "Welcome back! Redirecting to your dashboard...",
       });
     } catch (error: any) {
+      // If the user closes the popup, it's not a true error.
+      // We can just ignore it and let them try again without an alarming message.
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.warn('Google Sign-In popup closed by user.');
+        setIsGoogleLoading(false);
+        return; 
+      }
+
       let description = "Could not complete Google Sign-In. Please try again.";
       if (error.code === 'auth/account-exists-with-different-credential') {
         description = "An account already exists with the same email. Please sign in with your original method.";
       } else if (error.code === 'auth/operation-not-allowed') {
         description = "Google Sign-In is not enabled for this project. Please enable it in the Firebase Console.";
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        description = "The sign-in pop-up was closed before completing.";
       }
       
       console.error("Google Sign-In Error:", error);

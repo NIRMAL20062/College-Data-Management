@@ -86,13 +86,18 @@ export function SignUpForm() {
         description: "Welcome! We're setting up your account...",
       });
     } catch (error: any) {
+      // If the user closes the popup, it's not a true error.
+      if (error.code === 'auth/popup-closed-by-user') {
+        console.warn('Google Sign-Up popup closed by user.');
+        setIsGoogleLoading(false);
+        return;
+      }
+      
       let description = "Could not complete Google Sign-Up. Please try again.";
       if (error.code === 'auth/account-exists-with-different-credential') {
         description = "An account already exists with this email. Try signing in with the original method.";
       } else if (error.code === 'auth/operation-not-allowed') {
         description = "Google Sign-In is not enabled for this project. Please enable it in the Firebase Console.";
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        description = "The sign-up pop-up was closed before completing.";
       }
       
       console.error("Google Sign-Up Error:", error);
