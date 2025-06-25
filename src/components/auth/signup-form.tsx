@@ -49,11 +49,7 @@ export function SignUpForm() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
-      // The parent page and useAuth hook will handle the redirect.
-      toast({
-        title: "Sign Up Successful",
-        description: "Welcome! Redirecting to your dashboard...",
-      });
+      // The parent page's useAuth hook will handle the redirect.
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -68,7 +64,6 @@ export function SignUpForm() {
           variant: "destructive",
         });
       }
-    } finally {
       setLoading(false);
     }
   }
@@ -79,14 +74,10 @@ export function SignUpForm() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // After the popup is successful, the onAuthStateChanged listener in useAuth
-      // will handle setting the user, and the page's useEffect will redirect.
-      toast({
-        title: "Sign-Up Successful",
-        description: "Welcome! We're setting up your account...",
-      });
+      // On success, navigate directly to the dashboard.
+      // The AuthProvider will verify the session on the dashboard page.
+      window.location.href = '/dashboard';
     } catch (error: any) {
-      // If the user closes the popup, it's not a true error.
       if (error.code === 'auth/popup-closed-by-user') {
         console.warn('Google Sign-Up popup closed by user.');
         setIsGoogleLoading(false);
@@ -96,8 +87,6 @@ export function SignUpForm() {
       let description = "Could not complete Google Sign-Up. Please try again.";
       if (error.code === 'auth/account-exists-with-different-credential') {
         description = "An account already exists with this email. Try signing in with the original method.";
-      } else if (error.code === 'auth/operation-not-allowed') {
-        description = "Google Sign-In is not enabled for this project. Please enable it in the Firebase Console.";
       }
       
       console.error("Google Sign-Up Error:", error);
@@ -107,7 +96,6 @@ export function SignUpForm() {
         description: description,
         variant: "destructive",
       });
-    } finally {
       setIsGoogleLoading(false);
     }
   }
