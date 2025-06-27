@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
-import { signInWithEmailAndPassword, GithubAuthProvider, signInWithPopup } from "firebase/auth"
+import { signInWithEmailAndPassword, GithubAuthProvider, signInWithPopup, linkWithCredential, type AuthCredential } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,7 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function LoginForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [pendingCredential, setPendingCredential] = useState<AuthCredential | null>(null);
 
   const form = useForm<z.infer<typeof loginFormSchema>>({
     resolver: zodResolver(loginFormSchema),
@@ -38,7 +39,13 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      
+      if (pendingCredential) {
+        await linkWithCredential(userCredential.user, pendingCredential);
+        setPendingCredential(null);
+      }
+      
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -57,11 +64,17 @@ export function LoginForm() {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       if (error.code === 'auth/account-exists-with-different-credential') {
-        toast({
-          title: "Account Already Exists",
-          description: "This email is registered with a different method. Please sign in using your original method.",
-          variant: "destructive",
-        });
+        const credential = GithubAuthProvider.credentialFromError(error);
+        if (credential && error.customData.email) {
+          setPendingCredential(credential);
+          form.setValue('email', error.customData.email);
+          toast({
+            title: "Link Your Account",
+            description: "This email is already registered. Enter your password below to link your GitHub account and sign in.",
+            variant: "default",
+            duration: 7000,
+          });
+        }
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
         console.error(error);
         toast({
@@ -109,7 +122,7 @@ export function LoginForm() {
           />
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Login
+            {pendingCredential ? "Link Account & Login" : "Login"}
           </Button>
         </form>
       </Form>

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
 import { privilegedEmails } from "@/lib/privileged-users"
+import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
   email: z.string().email({
@@ -33,6 +34,7 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function SignUpForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,20 +46,6 @@ export function SignUpForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
-    const email = values.email.toLowerCase();
-    const emailDomain = email.split('@')[1];
-    const isWhitelisted = privilegedEmails.includes(email);
-
-    if (emailDomain !== 'sitare.org' && !isWhitelisted) {
-        toast({
-            title: "Sign Up Forbidden",
-            description: "You are not from Sitare University.",
-            variant: "destructive",
-        });
-        setLoading(false);
-        return;
-    }
-
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
     } catch (error: any) {
@@ -88,9 +76,10 @@ export function SignUpForm() {
        if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
           title: "Account Already Exists",
-          description: "This email is registered with a different method. Please sign in using your original method.",
+          description: "This email is registered with a different method. Please go to the login page to link your GitHub account.",
           variant: "destructive",
         });
+        router.push('/');
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
         console.error(error);
         toast({
