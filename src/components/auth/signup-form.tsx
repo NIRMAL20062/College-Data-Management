@@ -92,7 +92,13 @@ export function SignUpForm() {
       await signInWithPopup(auth, provider);
       window.location.href = '/dashboard';
     } catch (error: any) {
-      if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
+       if (error.code === 'auth/account-exists-with-different-credential') {
+        toast({
+          title: "Account Exists",
+          description: "An account with this email already exists. Please log in with your original method.",
+          variant: "destructive",
+        });
+      } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
         console.error(error);
         toast({
           title: "GitHub Sign-In Failed",
