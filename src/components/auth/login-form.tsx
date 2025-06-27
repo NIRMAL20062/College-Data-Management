@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
-import { signInWithEmailAndPassword, sendPasswordResetEmail, GithubAuthProvider, signInWithPopup } from "firebase/auth"
+import { signInWithEmailAndPassword, GithubAuthProvider, signInWithPopup } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -39,39 +39,14 @@ export function LoginForm() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      window.location.href = '/dashboard';
     } catch (error: any) {
       toast({
         title: "Login Failed",
         description: "Invalid credentials. Please try again.",
         variant: "destructive",
       });
-      setLoading(false);
-    }
-  }
-
-  async function handlePasswordReset() {
-    const email = form.getValues("email");
-    if (!email || form.getFieldState("email").invalid) {
-      form.setError("email", { type: "manual", message: "Please enter a valid email to reset password." })
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email);
-      toast({
-        title: "Password Reset Email Sent",
-        description: "Please check your inbox for instructions.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Password Reset Failed",
-        description: "Could not send reset email. Please check the address and try again.",
-        variant: "destructive",
-      });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   }
 
@@ -80,12 +55,11 @@ export function LoginForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
           title: "Account Already Exists",
-          description: "This email is already registered with a password. Please sign in using your password.",
+          description: "This email is registered with a different method. Please sign in using your original method.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
@@ -125,15 +99,6 @@ export function LoginForm() {
               <FormItem>
                 <div className="flex items-center">
                   <FormLabel>Password</FormLabel>
-                  <Button
-                      type="button"
-                      variant="link"
-                      className="ml-auto inline-block h-auto p-0 text-sm underline"
-                      onClick={handlePasswordReset}
-                      disabled={loading}
-                  >
-                      Forgot your password?
-                  </Button>
                 </div>
                 <FormControl>
                   <Input type="password" placeholder="••••••••" {...field} disabled={loading}/>
@@ -148,7 +113,7 @@ export function LoginForm() {
           </Button>
         </form>
       </Form>
-      <div className="relative my-4">
+       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
         <span className="w-full border-t" />
         </div>

@@ -60,11 +60,6 @@ export function SignUpForm() {
 
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
-      toast({
-        title: "Account Created",
-        description: "You are now logged in.",
-      });
-      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -79,7 +74,8 @@ export function SignUpForm() {
           variant: "destructive",
         });
       }
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -88,12 +84,11 @@ export function SignUpForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
     } catch (error: any) {
        if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
           title: "Account Already Exists",
-          description: "This email is already registered with a password. Please sign in with your password.",
+          description: "This email is registered with a different method. Please sign in using your original method.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
@@ -145,7 +140,7 @@ export function SignUpForm() {
           </Button>
         </form>
       </Form>
-      <div className="relative my-4">
+       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
         <span className="w-full border-t" />
         </div>
