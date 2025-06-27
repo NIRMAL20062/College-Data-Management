@@ -1,13 +1,13 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
-import { signInWithEmailAndPassword, GithubAuthProvider, signInWithPopup, linkWithCredential, type AuthCredential } from "firebase/auth"
+import { signInWithEmailAndPassword, GithubAuthProvider, linkWithCredential, type AuthCredential, signInWithRedirect } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -26,27 +26,41 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-export function LoginForm() {
+type LoginFormProps = {
+  pendingCredential?: AuthCredential | null;
+  pendingEmail?: string | null;
+};
+
+export function LoginForm({ pendingCredential, pendingEmail }: LoginFormProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [pendingCredential, setPendingCredential] = useState<AuthCredential | null>(null);
 
   const form = useForm<z.infer<typeof loginFormSchema>>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: { email: "", password: "" },
   })
 
+  useEffect(() => {
+    // If there's a pending email from a failed redirect, populate the form
+    // to make it easier for the user to link their account.
+    if (pendingEmail) {
+      form.setValue('email', pendingEmail);
+    }
+  }, [pendingEmail, form]);
+
   async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       
+      // If there's a pending credential, it means the user is linking their account.
       if (pendingCredential) {
         await linkWithCredential(userCredential.user, pendingCredential);
-        setPendingCredential(null);
+        toast({
+          title: "Account Linked!",
+          description: "Your GitHub account has been successfully linked. You can now sign in with either method.",
+        });
       }
-      window.location.href = '/dashboard';
-      
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -62,30 +76,16 @@ export function LoginForm() {
     setLoading(true);
     const provider = new GithubAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
+      // This will redirect the user to the GitHub sign-in page.
+      await signInWithRedirect(auth, provider);
     } catch (error: any) {
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        const credential = GithubAuthProvider.credentialFromError(error);
-        if (credential && error.customData.email) {
-          setPendingCredential(credential);
-          form.setValue('email', error.customData.email);
-          toast({
-            title: "Link Your Account",
-            description: "This email is already registered. Enter your password below to link your GitHub account and sign in.",
-            variant: "default",
-            duration: 7000,
-          });
-        }
-      } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
-        console.error(error);
-        toast({
-          title: "GitHub Sign-In Failed",
-          description: "Could not sign in with GitHub. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
+      console.error(error);
+      toast({
+        title: "GitHub Sign-In Failed",
+        description: "Could not start the sign-in process. Please try again.",
+        variant: "destructive",
+      });
+      // Unset loading only if there's an immediate error before redirect.
       setLoading(false);
     }
   }

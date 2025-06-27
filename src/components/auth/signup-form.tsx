@@ -5,7 +5,7 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { createUserWithEmailAndPassword, GithubAuthProvider, signInWithPopup } from "firebase/auth"
+import { createUserWithEmailAndPassword, GithubAuthProvider, signInWithRedirect } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -47,7 +47,6 @@ export function SignUpForm() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
-      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -71,25 +70,17 @@ export function SignUpForm() {
     setLoading(true);
     const provider = new GithubAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      window.location.href = '/dashboard';
+      // This will redirect the user to the GitHub sign-in page.
+      // Any errors (like account exists) will be handled on the login page after redirect.
+      await signInWithRedirect(auth, provider);
     } catch (error: any) {
-       if (error.code === 'auth/account-exists-with-different-credential') {
-        toast({
-          title: "Account Already Exists",
-          description: "This email is registered with a different method. Please go to the login page to link your GitHub account.",
-          variant: "destructive",
-        });
-        router.push('/');
-      } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
-        console.error(error);
-        toast({
-          title: "GitHub Sign-In Failed",
-          description: "Could not sign in with GitHub. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } finally {
+      console.error(error);
+      toast({
+        title: "GitHub Sign-Up Failed",
+        description: "Could not start the sign-up process. Please try again.",
+        variant: "destructive",
+      });
+      // Unset loading only if there's an immediate error before redirect.
       setLoading(false);
     }
   }
