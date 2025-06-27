@@ -45,6 +45,7 @@ export function LoginForm() {
         await linkWithCredential(userCredential.user, pendingCredential);
         setPendingCredential(null);
       }
+      window.location.href = '/dashboard';
       
     } catch (error: any) {
       toast({
@@ -62,6 +63,7 @@ export function LoginForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/account-exists-with-different-credential') {
         const credential = GithubAuthProvider.credentialFromError(error);

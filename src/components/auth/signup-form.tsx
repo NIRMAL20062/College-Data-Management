@@ -12,7 +12,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
-import { privilegedEmails } from "@/lib/privileged-users"
 import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
@@ -48,6 +47,7 @@ export function SignUpForm() {
     setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, values.email, values.password);
+      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -72,6 +72,7 @@ export function SignUpForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      window.location.href = '/dashboard';
     } catch (error: any) {
        if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
