@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
-import { signInWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, signOut, GithubAuthProvider, signInWithPopup } from "firebase/auth"
+import { signInWithEmailAndPassword, sendPasswordResetEmail, GithubAuthProvider, signInWithPopup } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -38,18 +38,7 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      if (!userCredential.user.emailVerified) {
-        toast({
-          title: "Email Not Verified",
-          description: "Please check your inbox to verify your email. A new verification link has been sent.",
-          variant: "destructive",
-        });
-        await sendEmailVerification(userCredential.user);
-        await signOut(auth);
-        setLoading(false);
-        return;
-      }
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       window.location.href = '/dashboard';
     } catch (error: any) {
       toast({
@@ -96,7 +85,7 @@ export function LoginForm() {
       if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
           title: "Account Already Exists",
-          description: "This email is registered with a password. Please sign in with your password to link your GitHub account.",
+          description: "This email is already registered with a password. Please sign in using your password.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {

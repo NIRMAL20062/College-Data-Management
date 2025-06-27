@@ -5,7 +5,7 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { createUserWithEmailAndPassword, signOut, sendEmailVerification, GithubAuthProvider, signInWithPopup } from "firebase/auth"
+import { createUserWithEmailAndPassword, GithubAuthProvider, signInWithPopup } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -59,14 +59,12 @@ export function SignUpForm() {
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      await sendEmailVerification(userCredential.user);
-      await signOut(auth);
+      await createUserWithEmailAndPassword(auth, values.email, values.password);
       toast({
-        title: "Verification Email Sent",
-        description: "Your account has been created. Please check your inbox to verify your email before logging in.",
+        title: "Account Created",
+        description: "You are now logged in.",
       });
-      form.reset();
+      window.location.href = '/dashboard';
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         toast({
@@ -81,8 +79,7 @@ export function SignUpForm() {
           variant: "destructive",
         });
       }
-    } finally {
-        setLoading(false);
+      setLoading(false);
     }
   }
 
@@ -96,7 +93,7 @@ export function SignUpForm() {
        if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
           title: "Account Already Exists",
-          description: "This email is registered with a password. Please sign in with your password to link your GitHub account.",
+          description: "This email is already registered with a password. Please sign in with your password.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
