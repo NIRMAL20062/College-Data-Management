@@ -1,13 +1,13 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
-import { signInWithEmailAndPassword, GithubAuthProvider, linkWithCredential, type AuthCredential, signInWithRedirect } from "firebase/auth"
+import { signInWithEmailAndPassword, GithubAuthProvider, linkWithCredential, type AuthCredential, signInWithPopup } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -26,40 +26,28 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
-type LoginFormProps = {
-  pendingCredential?: AuthCredential | null;
-  pendingEmail?: string | null;
-};
-
-export function LoginForm({ pendingCredential, pendingEmail }: LoginFormProps) {
+export function LoginForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [pendingCredential, setPendingCredential] = useState<AuthCredential | null>(null);
 
   const form = useForm<z.infer<typeof loginFormSchema>>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: { email: "", password: "" },
   })
 
-  useEffect(() => {
-    // If there's a pending email from a failed redirect, populate the form
-    // to make it easier for the user to link their account.
-    if (pendingEmail) {
-      form.setValue('email', pendingEmail);
-    }
-  }, [pendingEmail, form]);
-
   async function onSubmit(values: z.infer<typeof loginFormSchema>) {
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       
-      // If there's a pending credential, it means the user is linking their account.
       if (pendingCredential) {
         await linkWithCredential(userCredential.user, pendingCredential);
         toast({
           title: "Account Linked!",
           description: "Your GitHub account has been successfully linked. You can now sign in with either method.",
         });
+        setPendingCredential(null); // Clear pending state
       }
     } catch (error: any) {
       toast({
@@ -76,16 +64,42 @@ export function LoginForm({ pendingCredential, pendingEmail }: LoginFormProps) {
     setLoading(true);
     const provider = new GithubAuthProvider();
     try {
-      // This will redirect the user to the GitHub sign-in page.
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error(error);
-      toast({
-        title: "GitHub Sign-In Failed",
-        description: "Could not start the sign-in process. Please try again.",
-        variant: "destructive",
-      });
-      // Unset loading only if there's an immediate error before redirect.
+      switch (error.code) {
+        case 'auth/popup-blocked':
+          toast({
+            title: "Pop-up Blocked",
+            description: "Your browser blocked the login pop-up. Please allow pop-ups for this site and try again.",
+            variant: "destructive",
+            duration: 7000,
+          });
+          break;
+        case 'auth/cancelled-popup-request':
+          // User closed the pop-up, this is not an error.
+          break;
+        case 'auth/account-exists-with-different-credential':
+          const credential = GithubAuthProvider.credentialFromError(error);
+          const email = error.customData.email;
+          setPendingCredential(credential);
+          form.setValue('email', email);
+          toast({
+            title: "Link Your Account",
+            description: "This email is already registered. Please enter your password to link your GitHub account.",
+            variant: "default",
+            duration: 7000,
+          });
+          break;
+        default:
+          console.error("GitHub Sign-In Error:", error);
+          toast({
+            title: "GitHub Sign-In Failed",
+            description: "An unexpected error occurred. Please try again.",
+            variant: "destructive",
+          });
+          break;
+      }
+    } finally {
       setLoading(false);
     }
   }
@@ -101,7 +115,7 @@ export function LoginForm({ pendingCredential, pendingEmail }: LoginFormProps) {
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="student@example.com" {...field} disabled={loading}/>
+                  <Input placeholder="student@example.com" {...field} disabled={loading || !!pendingCredential}/>
                 </FormControl>
                 <FormMessage />
               </FormItem>

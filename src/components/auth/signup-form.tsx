@@ -5,14 +5,13 @@ import { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
-import { createUserWithEmailAndPassword, GithubAuthProvider, signInWithRedirect } from "firebase/auth"
+import { createUserWithEmailAndPassword, GithubAuthProvider, signInWithPopup } from "firebase/auth"
 import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { auth } from "@/lib/firebase"
-import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
   email: z.string().email({
@@ -33,7 +32,6 @@ const GithubIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export function SignUpForm() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,17 +68,38 @@ export function SignUpForm() {
     setLoading(true);
     const provider = new GithubAuthProvider();
     try {
-      // This will redirect the user to the GitHub sign-in page.
-      // Any errors (like account exists) will be handled on the login page after redirect.
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
-      console.error(error);
-      toast({
-        title: "GitHub Sign-Up Failed",
-        description: "Could not start the sign-up process. Please try again.",
-        variant: "destructive",
-      });
-      // Unset loading only if there's an immediate error before redirect.
+      switch (error.code) {
+        case 'auth/popup-blocked':
+          toast({
+            title: "Pop-up Blocked",
+            description: "Your browser blocked the sign-up pop-up. Please allow pop-ups for this site and try again.",
+            variant: "destructive",
+            duration: 7000,
+          });
+          break;
+        case 'auth/cancelled-popup-request':
+          // User closed the pop-up, this is not an error.
+          break;
+        case 'auth/account-exists-with-different-credential':
+           toast({
+            title: "Account Already Exists",
+            description: "An account with this email already exists. Please go to the login page and sign in.",
+            variant: "destructive",
+            duration: 7000,
+          });
+          break;
+        default:
+          console.error("GitHub Sign-Up Error:", error);
+          toast({
+            title: "GitHub Sign-Up Failed",
+            description: "An unexpected error occurred. Please try again.",
+            variant: "destructive",
+          });
+          break;
+      }
+    } finally {
       setLoading(false);
     }
   }
