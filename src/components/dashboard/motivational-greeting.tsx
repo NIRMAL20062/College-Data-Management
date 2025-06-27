@@ -1,39 +1,60 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateMotivationalGreeting } from "@/ai/flows/motivational-greeting";
+import { generateMotivationalGreeting, type MotivationalGreetingOutput } from "@/ai/flows/motivational-greeting";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles } from "lucide-react";
 
 export function MotivationalGreeting() {
-  const [greeting, setGreeting] = useState("");
+  const [data, setData] = useState<MotivationalGreetingOutput | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // This effect runs once on component mount (i.e., on page load/refresh)
+    // to fetch a new quote.
+    let isCancelled = false;
+    
     async function fetchGreeting() {
+      setLoading(true);
       try {
         const result = await generateMotivationalGreeting();
-        setGreeting(result.greeting);
+        if (!isCancelled) {
+          setData(result);
+        }
       } catch (error) {
         console.error("Failed to generate motivational greeting:", error);
-        setGreeting("Have a productive day!");
+        if (!isCancelled) {
+          setData({ quote: "The best way to predict the future is to create it.", person: "Peter Drucker" });
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     }
     fetchGreeting();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   return (
     <Card className="bg-gradient-to-r from-primary/80 to-accent/80 text-primary-foreground">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <Sparkles className="h-6 w-6" />
-          {loading ? (
-            <Skeleton className="h-6 w-3/4 bg-white/20" />
+      <CardContent className="p-6">
+        <div className="flex gap-4">
+          <Sparkles className="h-6 w-6 shrink-0 mt-1" />
+          {loading || !data ? (
+            <div className="space-y-2 w-full">
+              <Skeleton className="h-6 w-3/4 bg-white/20" />
+              <Skeleton className="h-4 w-1/4 bg-white/20" />
+            </div>
           ) : (
-            <p className="text-lg font-medium">{greeting}</p>
+            <div>
+              <p className="text-lg font-medium">"{data.quote}"</p>
+              <p className="text-right text-sm font-light opacity-80 mt-1">- {data.person}</p>
+            </div>
           )}
         </div>
       </CardContent>
