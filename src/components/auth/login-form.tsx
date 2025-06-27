@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -41,7 +42,7 @@ export function LoginForm() {
       if (!userCredential.user.emailVerified) {
         toast({
           title: "Email Not Verified",
-          description: "Please check your inbox to verify your email before logging in. A new verification link has been sent.",
+          description: "Please check your inbox to verify your email. A new verification link has been sent.",
           variant: "destructive",
         });
         await sendEmailVerification(userCredential.user);
@@ -94,8 +95,8 @@ export function LoginForm() {
     } catch (error: any) {
       if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
-          title: "Account Exists",
-          description: "An account with this email already exists using a different sign-in method. Please log in with your original method.",
+          title: "Account Already Exists",
+          description: "This email is registered with a password. Please sign in with your password to link your GitHub account.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {

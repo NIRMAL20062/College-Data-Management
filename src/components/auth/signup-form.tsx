@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -94,8 +95,8 @@ export function SignUpForm() {
     } catch (error: any) {
        if (error.code === 'auth/account-exists-with-different-credential') {
         toast({
-          title: "Account Exists",
-          description: "An account with this email already exists. Please log in with your original method.",
+          title: "Account Already Exists",
+          description: "This email is registered with a password. Please sign in with your password to link your GitHub account.",
           variant: "destructive",
         });
       } else if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
