@@ -69,6 +69,9 @@ export function SignUpForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      // On success, force a page reload. This ensures the app correctly
+      // picks up the new auth state, especially in tricky iframe environments.
+      window.location.reload();
     } catch (error: any) {
       switch (error.code) {
         case 'auth/popup-blocked':

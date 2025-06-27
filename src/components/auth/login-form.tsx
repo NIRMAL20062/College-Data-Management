@@ -47,7 +47,7 @@ export function LoginForm() {
           title: "Account Linked!",
           description: "Your GitHub account has been successfully linked. You can now sign in with either method.",
         });
-        setPendingCredential(null); // Clear pending state
+        setPendingCredential(null);
       }
     } catch (error: any) {
       toast({
@@ -65,6 +65,9 @@ export function LoginForm() {
     const provider = new GithubAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      // On success, force a page reload. This ensures the app correctly
+      // picks up the new auth state, especially in tricky iframe environments.
+      window.location.reload();
     } catch (error: any) {
       switch (error.code) {
         case 'auth/popup-blocked':
