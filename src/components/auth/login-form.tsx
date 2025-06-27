@@ -76,6 +76,7 @@ export function LoginForm() {
           });
           break;
         case 'auth/cancelled-popup-request':
+        case 'auth/popup-closed-by-user':
           // User closed the pop-up, this is not an error.
           break;
         case 'auth/account-exists-with-different-credential':
