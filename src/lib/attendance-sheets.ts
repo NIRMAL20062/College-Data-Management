@@ -8,11 +8,13 @@
  * as CSV files and paste the links here. The system expects a specific format.
  *
  * Expected Format:
- * - Row 1 & 2: Can be anything (e.g., Teacher Name, Hours). They are ignored.
- * - Row 3 (Date Header): The first few columns can be metadata. The system expects dates to start from the 6th column (Column F) onwards.
+ * - Row 1: Can be anything (e.g., Teacher Name). It is ignored.
+ * - Row 2 (Date Header): This row must contain the dates for each class. Dates should start from the 7th column (Column G) onwards.
+ * - Row 3: Can be anything (e.g., Day of the week). It is ignored.
  * - Row 4 onwards (Student Data):
  *   - Column A (Roll Number): This MUST match the roll number in the user's AcademIQ profile for the data to be found.
- *   - Column F onwards (Attendance Status): The status for each corresponding date. The system recognizes 'P'/'Present' for present and 'A'/'Absent' for absent. Other values are ignored.
+ *   - Columns B-F: Can be metadata like Name, Totals, etc.
+ *   - Column G onwards (Attendance Status): The status for each corresponding date. The system recognizes 'P'/'Present' for present and 'A'/'Absent' for absent. Other values are ignored.
  * 
  * How to get your public CSV link:
  * 1. Open your Google Sheet.

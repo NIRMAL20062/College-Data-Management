@@ -81,11 +81,13 @@ export default function AttendancePage() {
                     return;
                 }
                 
-                const dateHeaderRow = rows[2].split(',').map(h => h.trim());
-                const dates = dateHeaderRow.slice(5).filter(Boolean);
+                // Dates are expected in the 2nd row (index 1), starting from the 7th column (index 6)
+                const dateHeaderRow = rows[1].split(',').map(h => h.trim());
+                const dates = dateHeaderRow.slice(6).filter(Boolean);
                 
                 let userRowCols: string[] | undefined;
 
+                // Student data starts from the 4th row (index 3)
                 for (let i = 3; i < rows.length; i++) {
                     const cols = rows[i].split(',');
                     const sheetRollNumber = cols[0]?.trim(); // Match by Roll Number in Column A
@@ -100,8 +102,9 @@ export default function AttendancePage() {
                     setLoading(false);
                     return;
                 }
-
-                const statuses = userRowCols.slice(5);
+                
+                // Statuses also start from the 7th column (index 6)
+                const statuses = userRowCols.slice(6);
 
                 const records: AttendanceRecord[] = [];
                 for (let i = 0; i < dates.length; i++) {
