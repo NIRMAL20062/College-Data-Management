@@ -26,7 +26,7 @@ type AttendanceData = {
 };
 
 export default function AttendancePage() {
-    const { currentSemester } = useAuth();
+    const { user, currentSemester } = useAuth();
     const { toast } = useToast();
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [loading, setLoading] = useState(false);
@@ -39,13 +39,13 @@ export default function AttendancePage() {
     }, [currentSemester]);
 
     useEffect(() => {
-        if (subjectsForSemester.length > 0) {
+        if (subjectsForSemester.length > 0 && !selectedSubject) {
             setSelectedSubject(subjectsForSemester[0]);
         }
-    }, [subjectsForSemester]);
+    }, [subjectsForSemester, selectedSubject]);
 
     useEffect(() => {
-        if (!selectedSubject) return;
+        if (!selectedSubject || !user) return;
 
         const fetchAttendance = async () => {
             setLoading(true);
@@ -67,23 +67,47 @@ export default function AttendancePage() {
                 }
 
                 const csvText = await response.text();
-                const rows = csvText.trim().split(/\r?\n/).slice(1); // Skip header, handle different line endings
+                const rows = csvText.trim().split(/\r?\n/);
                 
-                if (rows.length === 0 || (rows.length === 1 && rows[0].trim() === '')) {
-                    setError("No attendance data found in the sheet. Please check the sheet and its format.");
+                if (rows.length < 4) {
+                    setError("Invalid sheet format: The sheet must have at least 4 rows to be processed correctly.");
                     setLoading(false);
                     return;
                 }
                 
-                const records: AttendanceRecord[] = rows.map(row => {
-                    const [date, status] = row.split(',');
-                    const trimmedStatus = status?.trim();
-                    return {
-                        date: date?.trim() || 'N/A',
-                        status: trimmedStatus === 'Present' ? 'Present' : 'Absent',
-                    };
-                }).filter(r => r.date !== 'N/A' && r.status);
+                // Parse the complex sheet format
+                const dateHeaderRow = rows[2].split(',').map(h => h.trim());
+                const dates = dateHeaderRow.slice(5).filter(Boolean);
+                
+                const normalizedUserName = user.displayName?.toLowerCase().replace(/\s/g, '') || '';
+                let userRowCols: string[] | undefined;
 
+                for (let i = 3; i < rows.length; i++) {
+                    const cols = rows[i].split(',');
+                    const sheetName = cols[1]?.trim().toLowerCase().replace(/\s/g, '');
+                    if (sheetName === normalizedUserName) {
+                        userRowCols = cols.map(c => c.trim());
+                        break;
+                    }
+                }
+
+                if (!userRowCols) {
+                    setError(`Could not find your name "${user.displayName}" in this attendance sheet. Please check your profile and the sheet for mismatches.`);
+                    setLoading(false);
+                    return;
+                }
+
+                const statuses = userRowCols.slice(5);
+
+                const records: AttendanceRecord[] = [];
+                for (let i = 0; i < dates.length; i++) {
+                    const status = statuses[i];
+                    if (status === 'P' || status === 'Present') {
+                        records.push({ date: dates[i], status: 'Present' });
+                    } else if (status === 'A' || status === 'Absent') {
+                         records.push({ date: dates[i], status: 'Absent' });
+                    }
+                }
 
                 const attendedClasses = records.filter(r => r.status === 'Present').length;
                 const totalClasses = records.length;
@@ -93,7 +117,7 @@ export default function AttendancePage() {
                     totalClasses,
                     attendedClasses,
                     percentage,
-                    recentRecords: records.slice(-10).reverse(), // Last 10 records, newest first
+                    recentRecords: records.slice(-10).reverse(),
                 });
 
             } catch (err: any) {
@@ -110,7 +134,7 @@ export default function AttendancePage() {
         };
 
         fetchAttendance();
-    }, [selectedSubject, toast]);
+    }, [selectedSubject, toast, user]);
 
     return (
         <div className="space-y-6">
@@ -186,16 +210,22 @@ export default function AttendancePage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {attendanceData.recentRecords.map((record, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">{record.date}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Badge variant={record.status === 'Present' ? 'default' : 'destructive'}>
-                                                        {record.status}
-                                                    </Badge>
-                                                </TableCell>
+                                        {attendanceData.recentRecords.length > 0 ? (
+                                            attendanceData.recentRecords.map((record, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell className="font-medium">{record.date}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Badge variant={record.status === 'Present' ? 'default' : 'destructive'}>
+                                                            {record.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={2} className="text-center text-muted-foreground">No recent records to display.</TableCell>
                                             </TableRow>
-                                        ))}
+                                        )}
                                     </TableBody>
                                 </Table>
                             </div>

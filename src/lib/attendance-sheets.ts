@@ -5,7 +5,15 @@
  * @fileOverview Configuration for Google Sheet attendance links.
  * 
  * IMPORTANT: To use the Attendance feature, you must publish your Google Sheets
- * as CSV files and paste the links here.
+ * as CSV files and paste the links here. The system expects a specific format
+ * based on the common Sitare Foundation attendance sheet layout.
+ *
+ * Expected Format:
+ * - Row 1 & 2: Can be anything (e.g., Teacher Name, Hours). They are ignored.
+ * - Row 3 (Date Header): The first few columns can be metadata. The system expects dates to start from the 6th column (Column F) onwards.
+ * - Row 4 onwards (Student Data):
+ *   - Column B (Student Name): This MUST match the display name in the user's AcademIQ profile for the data to be found. The matching is case-insensitive and ignores spaces.
+ *   - Column F onwards (Attendance Status): The status for each corresponding date. The system recognizes 'P'/'Present' for present and 'A'/'Absent' for absent. Other values are ignored.
  * 
  * How to get your public CSV link:
  * 1. Open your Google Sheet.
@@ -15,9 +23,6 @@
  * 5. Click `Publish`.
  * 6. Copy the generated URL.
  * 7. Paste the URL here, replacing the placeholder for the corresponding subject.
- * 
- * NOTE: The CSV should have two columns in this order: `Date` and `Status`.
- * The status should be 'Present' or 'Absent'. The first row will be treated as a header and ignored.
  */
 
 export const attendanceSheetLinks: Record<string, string> = {
