@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { generateMotivationalGreeting, type MotivationalGreetingOutput } from "@/ai/flows/motivational-greeting";
+import { generateMotivationalGreeting, type MotivationalGreetingOutput, type MotivationalGreetingInput } from "@/ai/flows/motivational-greeting";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles } from "lucide-react";
@@ -18,7 +18,9 @@ export function MotivationalGreeting() {
     async function fetchGreeting() {
       setLoading(true);
       try {
-        const result = await generateMotivationalGreeting();
+        // We pass a unique string on each call to bypass Genkit's caching mechanism.
+        // This ensures a new quote is fetched from the AI on every page refresh.
+        const result = await generateMotivationalGreeting({ cacheBuster: new Date().toISOString() });
         if (!isCancelled) {
           setData(result);
         }
@@ -52,7 +54,7 @@ export function MotivationalGreeting() {
             </div>
           ) : (
             <div>
-              <p className="text-lg font-medium">"{data.quote}"</p>
+              <p className="text-lg font-medium">\"{data.quote}\"</p>
               <p className="text-right text-sm font-light opacity-80 mt-1">- {data.person}</p>
             </div>
           )}
