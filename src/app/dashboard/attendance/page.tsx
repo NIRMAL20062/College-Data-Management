@@ -26,7 +26,7 @@ type AttendanceData = {
 };
 
 export default function AttendancePage() {
-    const { user, currentSemester } = useAuth();
+    const { user, currentSemester, rollNumber } = useAuth();
     const { toast } = useToast();
     const [selectedSubject, setSelectedSubject] = useState<string>('');
     const [loading, setLoading] = useState(false);
@@ -46,11 +46,17 @@ export default function AttendancePage() {
 
     useEffect(() => {
         if (!selectedSubject || !user) return;
-
+        
         const fetchAttendance = async () => {
             setLoading(true);
             setError(null);
             setAttendanceData(null);
+
+            if (!rollNumber) {
+                setError("Please set your Roll Number in the Settings page to view attendance.");
+                setLoading(false);
+                return;
+            }
 
             const sheetUrl = attendanceSheetLinks[selectedSubject];
             if (!sheetUrl || sheetUrl.includes('YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE')) {
@@ -75,24 +81,22 @@ export default function AttendancePage() {
                     return;
                 }
                 
-                // Parse the complex sheet format
                 const dateHeaderRow = rows[2].split(',').map(h => h.trim());
                 const dates = dateHeaderRow.slice(5).filter(Boolean);
                 
-                const normalizedUserName = user.displayName?.toLowerCase().replace(/\s/g, '') || '';
                 let userRowCols: string[] | undefined;
 
                 for (let i = 3; i < rows.length; i++) {
                     const cols = rows[i].split(',');
-                    const sheetName = cols[1]?.trim().toLowerCase().replace(/\s/g, '');
-                    if (sheetName === normalizedUserName) {
+                    const sheetRollNumber = cols[0]?.trim(); // Match by Roll Number in Column A
+                    if (sheetRollNumber === rollNumber) {
                         userRowCols = cols.map(c => c.trim());
                         break;
                     }
                 }
 
                 if (!userRowCols) {
-                    setError(`Could not find your name "${user.displayName}" in this attendance sheet. Please check your profile and the sheet for mismatches.`);
+                    setError(`Could not find your roll number "${rollNumber}" in this attendance sheet. Please check your settings and the sheet for mismatches.`);
                     setLoading(false);
                     return;
                 }
@@ -134,7 +138,7 @@ export default function AttendancePage() {
         };
 
         fetchAttendance();
-    }, [selectedSubject, toast, user]);
+    }, [selectedSubject, toast, user, rollNumber]);
 
     return (
         <div className="space-y-6">

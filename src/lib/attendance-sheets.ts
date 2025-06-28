@@ -5,14 +5,13 @@
  * @fileOverview Configuration for Google Sheet attendance links.
  * 
  * IMPORTANT: To use the Attendance feature, you must publish your Google Sheets
- * as CSV files and paste the links here. The system expects a specific format
- * based on the common Sitare Foundation attendance sheet layout.
+ * as CSV files and paste the links here. The system expects a specific format.
  *
  * Expected Format:
  * - Row 1 & 2: Can be anything (e.g., Teacher Name, Hours). They are ignored.
  * - Row 3 (Date Header): The first few columns can be metadata. The system expects dates to start from the 6th column (Column F) onwards.
  * - Row 4 onwards (Student Data):
- *   - Column B (Student Name): This MUST match the display name in the user's AcademIQ profile for the data to be found. The matching is case-insensitive and ignores spaces.
+ *   - Column A (Roll Number): This MUST match the roll number in the user's AcademIQ profile for the data to be found.
  *   - Column F onwards (Attendance Status): The status for each corresponding date. The system recognizes 'P'/'Present' for present and 'A'/'Absent' for absent. Other values are ignored.
  * 
  * How to get your public CSV link:
@@ -43,7 +42,7 @@ export const attendanceSheetLinks: Record<string, string> = {
   "Data Structures and Algorithms": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
 
   // Semester 3
-  "Probability for Computer Science": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
+  "Probability for Computer Science": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYGkqZ-J8_lsdFiy5dz4OFxLk08nCLdX7huM88rreRR9qjbck4tZwWeB7n9BolPwbmLft9U5JdRrz8/pub?gid=0&single=true&output=csv",
   "Communication and Book Club": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
   "Object Oriented Programming": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
   "Advanced Data Structures and Algorithms": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",

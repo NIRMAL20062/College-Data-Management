@@ -2,6 +2,7 @@
 // src/app/dashboard/settings/page.tsx
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,10 +11,18 @@ import { semesters } from "@/lib/subjects";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 export default function SettingsPage() {
-  const { user, isPrivileged, currentSemester, setCurrentSemester } = useAuth();
+  const { user, isPrivileged, currentSemester, setCurrentSemester, rollNumber, setRollNumber } = useAuth();
   const { toast } = useToast();
+  const [localRollNumber, setLocalRollNumber] = useState(rollNumber || "");
+
+  useEffect(() => {
+    if (rollNumber !== null) {
+        setLocalRollNumber(rollNumber);
+    }
+  }, [rollNumber]);
 
   if (!user) {
     return null; // Or a loading state
@@ -39,6 +48,21 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRollNumberSave = async () => {
+    if (!localRollNumber.trim()) {
+        toast({ title: "Input Required", description: "Roll Number cannot be empty.", variant: "destructive"});
+        return;
+    }
+    try {
+        await setRollNumber(localRollNumber);
+        toast({ title: "Success", description: "Your roll number has been saved."});
+    } catch (error) {
+        console.error("Failed to update roll number:", error);
+        toast({ title: "Update Failed", description: "Could not save your roll number.", variant: "destructive"});
+    }
+  };
+
+
   return (
     <div className="space-y-6">
         <Card>
@@ -51,15 +75,14 @@ export default function SettingsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Academic Profile</CardTitle>
-                <CardDescription>Set your current semester to personalize your dashboard and progress views.</CardDescription>
+                <CardDescription>Set your academic details to personalize your dashboard and progress views.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-8">
                 <div className="max-w-xs space-y-2">
                     <Label htmlFor="current-semester">Your Current Semester</Label>
                     <Select
                         value={currentSemester?.toString() || ""}
                         onValueChange={handleSemesterChange}
-                        disabled={!currentSemester}
                     >
                         <SelectTrigger id="current-semester">
                             <SelectValue placeholder="Select your semester" />
@@ -72,6 +95,18 @@ export default function SettingsPage() {
                             ))}
                         </SelectContent>
                     </Select>
+                </div>
+                 <div className="max-w-xs space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="roll-number">Your Roll Number</Label>
+                        <Input 
+                            id="roll-number" 
+                            placeholder="Enter university roll number"
+                            value={localRollNumber}
+                            onChange={(e) => setLocalRollNumber(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={handleRollNumberSave}>Save Roll Number</Button>
                 </div>
             </CardContent>
         </Card>

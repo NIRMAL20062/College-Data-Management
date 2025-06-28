@@ -14,6 +14,8 @@ interface AuthContextType {
   isPrivileged: boolean;
   currentSemester: number | null;
   setCurrentSemester: (semester: number) => Promise<void>;
+  rollNumber: string | null;
+  setRollNumber: (rollNumber: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,6 +24,8 @@ const AuthContext = createContext<AuthContextType>({
   isPrivileged: false,
   currentSemester: null,
   setCurrentSemester: async () => {},
+  rollNumber: null,
+  setRollNumber: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -29,6 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isPrivileged, setIsPrivileged] = useState(false);
   const [currentSemester, setSemesterState] = useState<number | null>(null);
+  const [rollNumber, setRollNumberState] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -37,6 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userDocSnap = await getDoc(userDocRef);
         let userIsPrivileged = false;
         let userCurrentSemester = 1; // Default to 1
+        let userRollNumber = ''; // Default to empty string
 
         if (!userDocSnap.exists()) {
           // New user: Create their profile in Firestore
@@ -49,7 +55,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               photoURL: user.photoURL,
               createdAt: serverTimestamp(),
               isPrivileged: userIsPrivileged,
-              currentSemester: userCurrentSemester, // Set default semester
+              currentSemester: userCurrentSemester,
+              rollNumber: userRollNumber,
             });
           } catch (error) {
             console.error("Error creating user document:", error);
@@ -59,15 +66,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const userData = userDocSnap.data();
           userIsPrivileged = userData?.isPrivileged || false;
           userCurrentSemester = userData?.currentSemester || 1;
+          userRollNumber = userData?.rollNumber || '';
         }
         
         setUser(user);
         setIsPrivileged(userIsPrivileged);
         setSemesterState(userCurrentSemester);
+        setRollNumberState(userRollNumber);
       } else {
         setUser(null);
         setIsPrivileged(false);
         setSemesterState(null);
+        setRollNumberState(null);
       }
       setLoading(false);
     });
@@ -83,9 +93,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const setRollNumber = async (rollNumber: string) => {
+    if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        await updateDoc(userDocRef, { rollNumber: rollNumber.trim() });
+        setRollNumberState(rollNumber.trim());
+    }
+  };
+
 
   return (
-    <AuthContext.Provider value={{ user, loading, isPrivileged, currentSemester, setCurrentSemester }}>
+    <AuthContext.Provider value={{ user, loading, isPrivileged, currentSemester, setCurrentSemester, rollNumber, setRollNumber }}>
       {children}
     </AuthContext.Provider>
   );
