@@ -55,11 +55,11 @@ export default function ProgressPage() {
             console.error("Error fetching user exams for progress: ", error);
         });
 
-        // This query for fetching all students' exams can require a composite index in Firestore.
-        // To avoid this, we query only on one field (semester) and filter the rest on the client side.
+        // This query for fetching all students' exams can require a manually created index in Firestore.
+        // To avoid this, we query all exams across all users and filter on the client.
+        // This is not ideal for very large datasets but avoids backend configuration.
         const allExamsQuery = query(
-            collectionGroup(db, 'exams'),
-            where("semester", "==", currentSemester)
+            collectionGroup(db, 'exams')
         );
         const unsubscribeAllExams = onSnapshot(allExamsQuery, (snapshot) => {
             if (signal.aborted) return;
@@ -69,10 +69,13 @@ export default function ProgressPage() {
                 const userId = path[path.indexOf('users') + 1];
                 examsData.push({ id: doc.id, userId: userId, ...doc.data() } as Exam);
             });
-            // Filter by selected exam type on the client
-            const filteredExams = examsData.filter(exam => exam.examType === selectedExamType);
+            
+            // Filter by selected semester AND exam type on the client
+            const filteredExams = examsData.filter(exam => 
+                exam.semester === currentSemester && exam.examType === selectedExamType
+            );
             setAllExams(filteredExams);
-            setLoading(false);
+            setLoading(false); // Set loading to false after the final data processing
         }, (error) => {
             console.error("Error fetching all exams. This might be due to a missing Firestore index. Check the console for a link to create one.", error);
             setLoading(false);
