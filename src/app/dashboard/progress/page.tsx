@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SubjectPerformanceChart } from "@/components/progress/subject-performance-chart";
@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
 import { collection, query, onSnapshot, collectionGroup, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
 type Exam = {
     id: string;
@@ -19,27 +20,31 @@ type Exam = {
     obtained: number;
     total: number;
     examType: 'IT 1' | 'IT 2' | 'Mid Sem' | 'End Sem';
+    semester: number;
 };
 
 const examTypes: Exam['examType'][] = ['IT 1', 'IT 2', 'Mid Sem', 'End Sem'];
 
 export default function ProgressPage() {
-    const { user } = useAuth();
+    const { user, currentSemester } = useAuth();
     const [userExams, setUserExams] = useState<Exam[]>([]);
     const [allExams, setAllExams] = useState<Exam[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedExamType, setSelectedExamType] = useState<Exam['examType']>('Mid Sem');
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !currentSemester) {
+             setLoading(false);
+             return;
+        };
         
         setLoading(true);
         const controller = new AbortController();
         const { signal } = controller;
 
-        // More efficient query for the current user's exams of the selected type
         const userExamsQuery = query(
             collection(db, `users/${user.uid}/exams`),
+            where("semester", "==", currentSemester),
             where("examType", "==", selectedExamType)
         );
         const unsubscribeUserExams = onSnapshot(userExamsQuery, (snapshot) => {
@@ -50,11 +55,11 @@ export default function ProgressPage() {
             console.error("Error fetching user exams for progress: ", error);
         });
 
-        // This is the corrected query for fetching all students' exams for a specific type.
-        // If this query fails due to a missing index, Firebase will log an error in the browser
-        // console with a link to create the required index automatically.
+        // This query for fetching all students' exams might require a composite index in Firestore.
+        // If it fails, Firebase will log an error in the browser console with a link to create the required index.
         const allExamsQuery = query(
             collectionGroup(db, 'exams'),
+            where("semester", "==", currentSemester),
             where("examType", "==", selectedExamType)
         );
         const unsubscribeAllExams = onSnapshot(allExamsQuery, (snapshot) => {
@@ -77,17 +82,12 @@ export default function ProgressPage() {
             unsubscribeUserExams();
             unsubscribeAllExams();
         };
-    }, [user, selectedExamType]);
+    }, [user, currentSemester, selectedExamType]);
 
-
-    if (loading) {
+    if (loading || !currentSemester) {
         return (
-            <div className="space-y-6">
-                <Card><CardHeader><Skeleton className="h-8 w-1/4" /></CardHeader><CardContent><Skeleton className="h-10 w-1/3" /></CardContent></Card>
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-80 w-full"/></CardContent></Card>
-                    <Card><CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader><CardContent><Skeleton className="h-80 w-full"/></CardContent></Card>
-                </div>
+             <div className="flex justify-center items-center p-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         )
     }
@@ -98,8 +98,8 @@ export default function ProgressPage() {
     <div className="space-y-6">
         <Card>
             <CardHeader>
-                <CardTitle>Performance Analysis</CardTitle>
-                <CardDescription>Select an exam type to see your detailed performance breakdown and comparison against the class average.</CardDescription>
+                <CardTitle>Performance Analysis for Semester {currentSemester}</CardTitle>
+                <CardDescription>Select an exam type to see your performance breakdown and comparison against the class average for your current semester.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="w-full md:w-1/3">
@@ -120,7 +120,7 @@ export default function ProgressPage() {
         {!hasAnyDataForType ? (
             <Card>
                 <CardContent className="flex items-center justify-center p-10">
-                     <p className="text-muted-foreground">No data available for the selected exam type: <span className="font-semibold">{selectedExamType}</span>.</p>
+                     <p className="text-muted-foreground">No data available for Semester {currentSemester} - <span className="font-semibold">{selectedExamType}</span>.</p>
                 </CardContent>
             </Card>
         ) : (

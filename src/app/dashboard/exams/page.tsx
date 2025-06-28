@@ -47,6 +47,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
             const subjects = selectedSemester ? selectedSemester.subjects : [];
             setAvailableSubjects(subjects);
             
+            // Reset subject if it's not in the new list of available subjects
             if (subject && !subjects.includes(subject)) {
                 setSubject("");
             }
@@ -57,6 +58,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
     }, [semester, subject]);
 
     useEffect(() => {
+        // Pre-populate subjects when editing an existing exam
         if (exam?.semester) {
             const selectedSemester = semesters.find(s => s.semester === exam.semester);
             setAvailableSubjects(selectedSemester ? selectedSemester.subjects : []);
@@ -83,20 +85,6 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
     return (
         <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="examType" className="text-right">Exam Type</Label>
-                 <Select value={examType} onValueChange={(value: Exam['examType']) => setExamType(value)}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select an exam type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="IT 1">IT 1</SelectItem>
-                        <SelectItem value="IT 2">IT 2</SelectItem>
-                        <SelectItem value="Mid Sem">Mid Sem</SelectItem>
-                        <SelectItem value="End Sem">End Sem</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="semester" className="text-right">Semester</Label>
                  <Select value={semester} onValueChange={setSemester}>
                     <SelectTrigger className="col-span-3">
@@ -107,7 +95,7 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
+             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject" className="text-right">Subject</Label>
                 <Select value={subject} onValueChange={setSubject} disabled={!semester}>
                     <SelectTrigger className="col-span-3">
@@ -115,6 +103,20 @@ const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSa
                     </SelectTrigger>
                     <SelectContent>
                         {availableSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="examType" className="text-right">Exam Type</Label>
+                 <Select value={examType} onValueChange={(value: Exam['examType']) => setExamType(value)}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select an exam type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="IT 1">IT 1</SelectItem>
+                        <SelectItem value="IT 2">IT 2</SelectItem>
+                        <SelectItem value="Mid Sem">Mid Sem</SelectItem>
+                        <SelectItem value="End Sem">End Sem</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -257,7 +259,7 @@ export default function ExamsPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Exam Records</CardTitle>
-              <CardDescription>Manage your past exam results.</CardDescription>
+              <CardDescription>Manage your past exam results according to the official curriculum.</CardDescription>
             </div>
             <Button onClick={openAddDialog}>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -269,6 +271,7 @@ export default function ExamsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Semester</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Date</TableHead>
@@ -282,6 +285,7 @@ export default function ExamsPage() {
                 const percentage = Math.round((exam.obtained / exam.total) * 100);
                 return (
                   <TableRow key={exam.id}>
+                    <TableCell>Sem {exam.semester}</TableCell>
                     <TableCell className="font-medium">{exam.subject}</TableCell>
                     <TableCell><Badge variant="secondary">{exam.examType}</Badge></TableCell>
                     <TableCell>{exam.date}</TableCell>
@@ -314,7 +318,7 @@ export default function ExamsPage() {
                 )
               }) : (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
+                    <TableCell colSpan={7} className="h-24 text-center">
                         No exam records found. Click "Add Exam" to get started.
                     </TableCell>
                 </TableRow>
@@ -329,7 +333,7 @@ export default function ExamsPage() {
             <DialogHeader>
                 <DialogTitle>{editingExam ? 'Edit Exam Record' : 'Add New Exam Record'}</DialogTitle>
                 <DialogDescription>
-                    {editingExam ? 'Update the details for this exam.' : 'Fill in the details for the new exam.'}
+                    {editingExam ? 'Update the details for this exam.' : 'Select a semester and subject, then fill in the details.'}
                 </DialogDescription>
             </DialogHeader>
             <ExamForm exam={editingExam} onSave={handleSaveExam} onCancel={closeDialog} />

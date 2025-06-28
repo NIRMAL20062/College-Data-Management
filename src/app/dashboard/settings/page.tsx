@@ -1,3 +1,4 @@
+
 // src/app/dashboard/settings/page.tsx
 "use client";
 
@@ -5,13 +6,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
+import { semesters } from "@/lib/subjects";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SettingsPage() {
-  const { user, isPrivileged } = useAuth();
+  const { user, isPrivileged, currentSemester, setCurrentSemester } = useAuth();
+  const { toast } = useToast();
 
   if (!user) {
     return null; // Or a loading state
   }
+
+  const handleSemesterChange = async (value: string) => {
+    const semesterNum = parseInt(value, 10);
+    if (!isNaN(semesterNum)) {
+      try {
+        await setCurrentSemester(semesterNum);
+        toast({
+          title: "Semester Updated",
+          description: `Your current semester has been set to Semester ${semesterNum}.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Update Failed",
+          description: "Could not update your semester. Please try again.",
+          variant: "destructive"
+        });
+        console.error("Failed to update semester:", error);
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -20,6 +46,34 @@ export default function SettingsPage() {
                 <CardTitle>Settings</CardTitle>
                 <CardDescription>Manage your account and application settings.</CardDescription>
             </CardHeader>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Academic Profile</CardTitle>
+                <CardDescription>Set your current semester to personalize your dashboard and progress views.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="max-w-xs space-y-2">
+                    <Label htmlFor="current-semester">Your Current Semester</Label>
+                    <Select
+                        value={currentSemester?.toString() || ""}
+                        onValueChange={handleSemesterChange}
+                        disabled={!currentSemester}
+                    >
+                        <SelectTrigger id="current-semester">
+                            <SelectValue placeholder="Select your semester" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {semesters.map(s => (
+                                <SelectItem key={s.semester} value={s.semester.toString()}>
+                                    {s.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardContent>
         </Card>
 
         <Card>
@@ -39,21 +93,6 @@ export default function SettingsPage() {
                 </div>
             </CardContent>
         </Card>
-
-        {!isPrivileged && (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Privileged Access</CardTitle>
-                    <CardDescription>Privileged users can post announcements and manage notes.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/50">
-                        <p className="text-sm">Want to become a content contributor?</p>
-                        <Button>Apply Now</Button>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
     </div>
   );
 }

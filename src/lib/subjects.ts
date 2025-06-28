@@ -40,6 +40,7 @@ export const semesters: Semester[] = [
       "Advanced Data Structures and Algorithms",
       "Database Management Systems",
       "Artificial Intelligence",
+      "CoCo Summer",
     ],
   },
   {
@@ -52,7 +53,6 @@ export const semesters: Semester[] = [
       "Computer Organization and Systems",
       "Machine Learning",
       "Design and Analysis of Algorithms",
-      "CoCo Summer",
     ],
   },
   {
@@ -82,7 +82,7 @@ export const semesters: Semester[] = [
   },
   {
     semester: 7,
-    name: "Common Electives",
+    name: "Semester 7 (Electives)",
     subjects: [
         "Cloud Computing",
         "Big Data Analytics",
@@ -94,5 +94,3 @@ export const semesters: Semester[] = [
     ]
   }
 ];
-
-    
