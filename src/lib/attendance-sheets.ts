@@ -44,7 +44,7 @@ export const attendanceSheetLinks: Record<string, string> = {
   "Data Structures and Algorithms": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
 
   // Semester 3
-  "Probability for Computer Science": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYGkqZ-J8_lsdFiy5dz4OFxLk08nCLdX7huM88rreRR9qjbck4tZwWeB7n9BolPwbmLft9U5JdRrz8/pub?gid=0&single=true&output=csv",
+  "Probability for Computer Science": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSYGkqZ-J8_lsdFiy5dz4OFxLk08nCLdX7huM88rreRR9qjbck4tZwWeB7n9BolPwbmLft9U5JdRrz8/pub?output=csv",
   "Communication and Book Club": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
   "Object Oriented Programming": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
   "Advanced Data Structures and Algorithms": "YOUR_PUBLISHED_GOOGLE_SHEET_CSV_URL_HERE",
