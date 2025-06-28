@@ -3,22 +3,19 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MoreHorizontal, Trash2, Edit, Loader2 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, Timestamp, where, getDocs } from "firebase/firestore";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { collection, query, where, onSnapshot, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { semesters } from "@/lib/subjects";
+import { Loader2, CheckCircle, Edit, BookOpen } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
+// Define the shape of an exam record
 type Exam = {
     id: string;
     semester: number;
@@ -29,333 +26,316 @@ type Exam = {
     examType: 'IT 1' | 'IT 2' | 'Mid Sem' | 'End Sem';
 };
 
-type ExamData = Omit<Exam, 'id'> & { createdAt: Timestamp };
+const examTypes: Exam['examType'][] = ['IT 1', 'IT 2', 'Mid Sem', 'End Sem'];
 
-const ExamForm = ({ exam, onSave, onCancel }: { exam: Partial<Exam> | null; onSave: (exam: Omit<Exam, 'id' | 'createdAt'>) => void; onCancel: () => void }) => {
-    const [semester, setSemester] = useState(exam?.semester?.toString() || "");
-    const [subject, setSubject] = useState(exam?.subject || "");
-    const [date, setDate] = useState(exam?.date || new Date().toISOString().split("T")[0]);
-    const [obtained, setObtained] = useState(exam?.obtained?.toString() || "");
-    const [total, setTotal] = useState(exam?.total?.toString() || "100");
-    const [examType, setExamType] = useState<Exam['examType']>(exam?.examType || "Mid Sem");
-    const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+// This will be the form inside the dialog
+const ExamEntryForm = ({ 
+    semester, 
+    examType, 
+    existingExams, 
+    onSave, 
+    onCancel 
+}: { 
+    semester: number; 
+    examType: Exam['examType'];
+    existingExams: Exam[];
+    onSave: (formData: Record<string, { obtained: string, total: string, date: string }>) => Promise<void>; 
+    onCancel: () => void 
+}) => {
+    const subjects = useMemo(() => {
+        return semesters.find(s => s.semester === semester)?.subjects || [];
+    }, [semester]);
+
+    const [formData, setFormData] = useState<Record<string, { obtained: string, total: string, date: string }>>(() => {
+        const initialData: Record<string, { obtained: string, total: string, date: string }> = {};
+        const commonDate = existingExams[0]?.date || new Date().toISOString().split("T")[0];
+
+        subjects.forEach(subject => {
+            const existing = existingExams.find(e => e.subject === subject);
+            initialData[subject] = {
+                obtained: existing?.obtained.toString() || "",
+                total: existing?.total.toString() || "100",
+                date: existing?.date || commonDate,
+            };
+        });
+        return initialData;
+    });
+    const [loading, setLoading] = useState(false);
     const { toast } = useToast();
-
-    useEffect(() => {
-        if (semester) {
-            const selectedSemester = semesters.find(s => s.semester.toString() === semester);
-            const subjects = selectedSemester ? selectedSemester.subjects : [];
-            setAvailableSubjects(subjects);
-            
-            // Reset subject if it's not in the new list of available subjects
-            if (subject && !subjects.includes(subject)) {
-                setSubject("");
+    
+    const handleInputChange = (subject: string, field: 'obtained' | 'total' | 'date', value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            [subject]: {
+                ...prev[subject],
+                [field]: value
             }
-        } else {
-            setAvailableSubjects([]);
-            setSubject("");
+        }));
+    };
+    
+    const handleDateChangeForAll = (newDate: string) => {
+        const updatedData = { ...formData };
+        for (const subject in updatedData) {
+            updatedData[subject].date = newDate;
         }
-    }, [semester, subject]);
-
-    useEffect(() => {
-        // Pre-populate subjects when editing an existing exam
-        if (exam?.semester) {
-            const selectedSemester = semesters.find(s => s.semester === exam.semester);
-            setAvailableSubjects(selectedSemester ? selectedSemester.subjects : []);
-        }
-    }, [exam]);
-
-    const handleSubmit = () => {
-        const obtainedNum = parseFloat(obtained);
-        const totalNum = parseFloat(total);
-        const semesterNum = parseInt(semester, 10);
-
-        if (!subject || !date || !examType || isNaN(semesterNum) || isNaN(obtainedNum) || isNaN(totalNum) || totalNum <= 0) {
-            toast({ title: "Validation Error", description: "Please fill all fields correctly.", variant: "destructive" });
-            return;
-        }
-        if (obtainedNum > totalNum) {
-            toast({ title: "Validation Error", description: "Obtained score cannot be greater than total score.", variant: "destructive" });
-            return;
-        }
-
-        onSave({ semester: semesterNum, subject, date, obtained: obtainedNum, total: totalNum, examType });
+        setFormData(updatedData);
     };
 
+    const handleSubmit = async () => {
+        setLoading(true);
+        // Basic validation
+        for (const subject of subjects) {
+            const entry = formData[subject];
+            const obtained = parseFloat(entry.obtained);
+            const total = parseFloat(entry.total);
+            if (entry.obtained && (isNaN(obtained) || isNaN(total) || total <= 0 || obtained > total)) {
+                toast({ title: "Validation Error", description: `Invalid score for ${subject}.`, variant: "destructive" });
+                setLoading(false);
+                return;
+            }
+        }
+
+        try {
+            await onSave(formData);
+        } catch (e) {
+            // onSave should handle its own toasts
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const commonDate = formData[subjects[0]]?.date || new Date().toISOString().split("T")[0];
+
     return (
-        <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="semester" className="text-right">Semester</Label>
-                 <Select value={semester} onValueChange={setSemester}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select a semester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {semesters.map(s => <SelectItem key={s.semester} value={s.semester.toString()}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="common-date">Exam Date (for all subjects)</Label>
+                <Input 
+                    id="common-date" 
+                    type="date" 
+                    value={commonDate} 
+                    onChange={e => handleDateChangeForAll(e.target.value)}
+                />
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="subject" className="text-right">Subject</Label>
-                <Select value={subject} onValueChange={setSubject} disabled={!semester}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select a subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableSubjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="examType" className="text-right">Exam Type</Label>
-                 <Select value={examType} onValueChange={(value: Exam['examType']) => setExamType(value)}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select an exam type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="IT 1">IT 1</SelectItem>
-                        <SelectItem value="IT 2">IT 2</SelectItem>
-                        <SelectItem value="Mid Sem">Mid Sem</SelectItem>
-                        <SelectItem value="End Sem">End Sem</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">Date</Label>
-                <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="score" className="text-right">Score</Label>
-                <div className="col-span-3 grid grid-cols-2 gap-2">
-                    <Input id="obtained" type="number" placeholder="Obtained" value={obtained} onChange={e => setObtained(e.target.value)} />
-                    <Input id="total" type="number" placeholder="Total" value={total} onChange={e => setTotal(e.target.value)} />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                {subjects.map(subject => (
+                    <div key={subject} className="space-y-2">
+                        <Label>{subject}</Label>
+                        <div className="flex gap-2">
+                            <Input 
+                                type="number" 
+                                placeholder="Obtained"
+                                value={formData[subject]?.obtained || ""}
+                                onChange={(e) => handleInputChange(subject, 'obtained', e.target.value)}
+                            />
+                            <Input 
+                                type="number" 
+                                placeholder="Total" 
+                                value={formData[subject]?.total || ""}
+                                onChange={(e) => handleInputChange(subject, 'total', e.target.value)}
+                            />
+                        </div>
+                    </div>
+                ))}
             </div>
             <DialogFooter>
-                <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                <Button onClick={handleSubmit}>Save</Button>
+                <Button variant="outline" onClick={onCancel} disabled={loading}>Cancel</Button>
+                <Button onClick={handleSubmit} disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Save Scores
+                </Button>
             </DialogFooter>
         </div>
     );
-}
-
-const getGradeColor = (percentage: number) => {
-  if (percentage >= 90) return "bg-green-500/20 text-green-700 border-green-400";
-  if (percentage >= 80) return "bg-blue-500/20 text-blue-700 border-blue-400";
-  if (percentage >= 70) return "bg-yellow-500/20 text-yellow-700 border-yellow-400";
-  return "bg-red-500/20 text-red-700 border-red-400";
-}
+};
 
 export default function ExamsPage() {
-  const { user } = useAuth();
-  const [exams, setExams] = useState<Exam[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
-  const [editingExam, setEditingExam] = useState<Exam | null>(null);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
+    const { user, currentSemester } = useAuth();
+    const { toast } = useToast();
     
-    const q = query(collection(db, `users/${user.uid}/exams`), orderBy("date", "desc"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const examsData: Exam[] = [];
-      querySnapshot.forEach((doc) => {
-        examsData.push({ id: doc.id, ...doc.data() } as Exam);
-      });
-      setExams(examsData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching exams: ", error);
-      toast({ title: "Error", description: "Could not fetch exam records.", variant: "destructive" });
-      setLoading(false);
-    });
+    const [allExams, setAllExams] = useState<Exam[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [selectedExamType, setSelectedExamType] = useState<Exam['examType'] | null>(null);
 
-    return () => unsubscribe();
-  }, [user, toast]);
+    const subjectsForSemester = useMemo(() => {
+        return semesters.find(s => s.semester === currentSemester)?.subjects || [];
+    }, [currentSemester]);
 
-  const handleSaveExam = async (examData: Omit<Exam, 'id'>) => {
-    if (!user) return;
+    useEffect(() => {
+        if (!user || !currentSemester) {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        const q = query(collection(db, `users/${user.uid}/exams`), where("semester", "==", currentSemester));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const examsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Exam);
+            setAllExams(examsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching exams: ", error);
+            toast({ title: "Error", description: "Could not fetch exam records.", variant: "destructive" });
+            setLoading(false);
+        });
 
-    try {
-      if (editingExam) {
-        // Update existing exam
-        const docRef = doc(db, `users/${user.uid}/exams`, editingExam.id);
-        await updateDoc(docRef, examData);
-        toast({ title: "Success", description: "Exam record updated." });
-      } else {
-        // Check for duplicates before adding a new exam
-        const q = query(
-            collection(db, `users/${user.uid}/exams`),
-            where("semester", "==", examData.semester),
-            where("subject", "==", examData.subject),
-            where("examType", "==", examData.examType)
-        );
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            toast({
-                title: "Duplicate Entry",
-                description: "You have already added a record for this subject and exam type.",
-                variant: "destructive",
-            });
+        return () => unsubscribe();
+    }, [user, currentSemester, toast]);
+
+    const handleSaveScores = async (formData: Record<string, { obtained: string, total: string, date: string }>) => {
+        if (!user || !currentSemester || !selectedExamType) return;
+        
+        const batch = writeBatch(db);
+        let operationsCount = 0;
+
+        for (const subject in formData) {
+            const entry = formData[subject];
+            const obtained = parseFloat(entry.obtained);
+            const total = parseFloat(entry.total);
+
+            // Only process if 'obtained' has a value
+            if (entry.obtained && !isNaN(obtained) && !isNaN(total)) {
+                const existingExam = allExams.find(e => e.subject === subject && e.examType === selectedExamType);
+                
+                const examData = {
+                    semester: currentSemester,
+                    subject,
+                    examType: selectedExamType,
+                    date: entry.date,
+                    obtained: obtained,
+                    total: total,
+                };
+                
+                if (existingExam) {
+                    // Update existing document
+                    const docRef = doc(db, `users/${user.uid}/exams`, existingExam.id);
+                    batch.update(docRef, examData);
+                    operationsCount++;
+                } else {
+                    // Create new document
+                    const docRef = doc(collection(db, `users/${user.uid}/exams`));
+                    batch.set(docRef, { ...examData, createdAt: serverTimestamp() });
+                    operationsCount++;
+                }
+            }
+        }
+
+        if (operationsCount === 0) {
+            toast({ title: "No changes", description: "No new scores were entered to save." });
             return;
         }
 
-        // Add new exam
-        await addDoc(collection(db, `users/${user.uid}/exams`), {
-          ...examData,
-          createdAt: serverTimestamp(),
-        });
-        toast({ title: "Success", description: "New exam record added." });
-      }
-      closeDialog();
-    } catch (error) {
-      console.error("Error saving exam:", error);
-      toast({ title: "Error", description: "Failed to save exam record.", variant: "destructive"});
-    }
-  };
+        try {
+            await batch.commit();
+            toast({ title: "Success", description: `${selectedExamType} scores have been saved.` });
+            setIsDialogOpen(false);
+            setSelectedExamType(null);
+        } catch (error) {
+            console.error("Error saving exam scores: ", error);
+            toast({ title: "Save Failed", description: "An error occurred while saving scores.", variant: "destructive" });
+        }
+    };
+    
+    const openDialogFor = (examType: Exam['examType']) => {
+        setSelectedExamType(examType);
+        setIsDialogOpen(true);
+    };
 
-  const handleDeleteExam = async () => {
-    if (!examToDelete || !user) return;
-    try {
-      await deleteDoc(doc(db, `users/${user.uid}/exams`, examToDelete.id));
-      setExamToDelete(null);
-      toast({ title: "Success", description: "Exam record deleted." });
-    } catch (error) {
-      console.error("Error deleting exam:", error);
-      toast({ title: "Error", description: "Failed to delete exam record.", variant: "destructive"});
-    }
-  };
-  
-  const openEditDialog = (exam: Exam) => {
-    setEditingExam(exam);
-    setIsDialogOpen(true);
-  };
-  
-  const openAddDialog = () => {
-    setEditingExam(null);
-    setIsDialogOpen(true);
-  };
+    const closeDialog = () => {
+        setIsDialogOpen(false);
+        setSelectedExamType(null);
+    };
 
-  const closeDialog = () => {
-    setIsDialogOpen(false);
-    setEditingExam(null);
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center p-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Exam Records</CardTitle>
-              <CardDescription>Manage your past exam results according to the official curriculum.</CardDescription>
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center p-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-            <Button onClick={openAddDialog}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Exam
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Semester</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Percentage</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {exams.length > 0 ? exams.map((exam) => {
-                const percentage = Math.round((exam.obtained / exam.total) * 100);
-                return (
-                  <TableRow key={exam.id}>
-                    <TableCell>Sem {exam.semester}</TableCell>
-                    <TableCell className="font-medium">{exam.subject}</TableCell>
-                    <TableCell><Badge variant="secondary">{exam.examType}</Badge></TableCell>
-                    <TableCell>{exam.date}</TableCell>
-                    <TableCell>{exam.obtained} / {exam.total}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getGradeColor(percentage)}>{percentage}%</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openEditDialog(exam)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setExamToDelete(exam)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                )
-              }) : (
-                <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                        No exam records found. Click "Add Exam" to get started.
-                    </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      
-      <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-                <DialogTitle>{editingExam ? 'Edit Exam Record' : 'Add New Exam Record'}</DialogTitle>
-                <DialogDescription>
-                    {editingExam ? 'Update the details for this exam.' : 'Select a semester and subject, then fill in the details.'}
-                </DialogDescription>
-            </DialogHeader>
-            <ExamForm exam={editingExam} onSave={handleSaveExam} onCancel={closeDialog} />
-        </DialogContent>
-      </Dialog>
-      
-      <AlertDialog open={!!examToDelete} onOpenChange={(open) => !open && setExamToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the {examToDelete?.examType} record for "{examToDelete?.subject}".
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setExamToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteExam} className="bg-destructive hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  )
+        );
+    }
+    
+    if (!currentSemester) {
+         return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Exam Records</CardTitle>
+                </CardHeader>
+                <CardContent className="flex items-center justify-center p-10">
+                    <p className="text-muted-foreground">Please set your current semester in Settings to view this page.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <>
+            <Card className="mb-6">
+                <CardHeader>
+                    <CardTitle>Exam Records for Semester {currentSemester}</CardTitle>
+                    <CardDescription>Select an exam type to enter or update your scores for the subjects in your current semester.</CardDescription>
+                </CardHeader>
+            </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {examTypes.map(examType => {
+                    const examsForType = allExams.filter(e => e.examType === examType);
+                    const gradedCount = examsForType.length;
+                    const totalSubjects = subjectsForSemester.length;
+                    const progress = totalSubjects > 0 ? (gradedCount / totalSubjects) * 100 : 0;
+                    const isComplete = gradedCount === totalSubjects && totalSubjects > 0;
+
+                    return (
+                        <Card 
+                            key={examType} 
+                            className="flex flex-col hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                            onClick={() => openDialogFor(examType)}
+                        >
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <CardTitle>{examType}</CardTitle>
+                                    {isComplete ? (
+                                        <CheckCircle className="h-6 w-6 text-green-500" />
+                                    ) : (
+                                        <BookOpen className="h-6 w-6 text-muted-foreground"/>
+                                    )}
+                                </div>
+                                <CardDescription>
+                                    {isComplete ? "All subjects graded" : `${gradedCount} of ${totalSubjects} subjects graded`}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex-grow">
+                                <Progress value={progress} aria-label={`${progress}% graded`}/>
+                            </CardContent>
+                             <CardFooter>
+                                <Button variant="secondary" className="w-full">
+                                    <Edit className="mr-2 h-4 w-4"/>
+                                    {gradedCount > 0 ? 'Edit Scores' : 'Enter Scores'}
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={closeDialog}>
+                <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Enter Scores for {selectedExamType}</DialogTitle>
+                        <DialogDescription>
+                            Fill in your scores for each subject in Semester {currentSemester}. Any existing scores will be updated.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedExamType && (
+                         <ExamEntryForm 
+                            semester={currentSemester}
+                            examType={selectedExamType}
+                            existingExams={allExams.filter(e => e.examType === selectedExamType)}
+                            onSave={handleSaveScores}
+                            onCancel={closeDialog}
+                         />
+                    )}
+                </DialogContent>
+            </Dialog>
+        </>
+    );
 }
