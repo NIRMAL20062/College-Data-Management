@@ -11,22 +11,21 @@ export function MotivationalGreeting() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This effect runs once on component mount (i.e., on page load/refresh)
-    // to fetch a new quote.
     let isCancelled = false;
     
     async function fetchGreeting() {
       setLoading(true);
       try {
-        // We pass a unique string on each call to bypass Genkit's caching mechanism.
-        // This ensures a new quote is fetched from the AI on every page refresh.
-        const result = await generateMotivationalGreeting({ cacheBuster: new Date().toISOString() });
+        // The temperature setting in the Genkit flow now handles variety.
+        // No need to pass a cache-busting argument.
+        const result = await generateMotivationalGreeting();
         if (!isCancelled) {
           setData(result);
         }
       } catch (error) {
         console.error("Failed to generate motivational greeting:", error);
         if (!isCancelled) {
+          // Fallback quote in case of an error
           setData({ quote: "The best way to predict the future is to create it.", person: "Peter Drucker" });
         }
       } finally {
