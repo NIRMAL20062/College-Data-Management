@@ -13,6 +13,7 @@ import {
   Settings,
   StickyNote,
   BugPlay,
+  CalendarCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,11 +29,12 @@ import Link from "next/link";
 
 const menuItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/announcements", icon: Megaphone, label: "Announcements" },
+  { href: "/dashboard/attendance", icon: CalendarCheck, label: "Attendance" },
   { href: "/dashboard/exams", icon: BookOpen, label: "Exams" },
   { href: "/dashboard/progress", icon: BarChart2, label: "Progress" },
   { href: "/dashboard/notes", icon: StickyNote, label: "Notes" },
   { href: "/dashboard/tasks", icon: ClipboardList, label: "Tasks" },
-  { href: "/dashboard/announcements", icon: Megaphone, label: "Announcements" },
   { href: "/dashboard/chatbot", icon: MessageSquare, label: "Chatbot" },
   { href: "/dashboard/code-analyzer", icon: Code2, label: "Code Analyzer" },
   { href: "/dashboard/code-debugger", icon: BugPlay, label: "Code Debugger" },
